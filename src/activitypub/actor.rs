@@ -1,0 +1,118 @@
+use activitypub::activity::Activity;
+use actor;
+use database;
+use env;
+use rocket_contrib::json;
+use rocket_contrib::json::JsonValue;
+use serde::{Serialize, Deserialize};
+use serde_json;
+
+// ActivityStreams2/AcitivityPub properties are expressed in CamelCase
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
+pub struct Actor
+{
+    // Properties according to
+    // - https://www.w3.org/TR/activitypub/#actor-objects
+    // - https://www.w3.org/TR/activitystreams-core/#actors
+
+    #[serde(rename = "@context")]
+    pub context: Vec<serde_json::Value>,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub id: String,
+    pub summary: Option<String>,
+    pub following: String,
+    pub followers: String,
+    pub inbox: String,
+    pub outbox: String,
+    pub preferredUsername: String,
+    pub name: Option<String>,
+    pub publicKey: serde_json::Value,
+    pub url: String,
+    pub icon: Option<serde_json::Value>,
+    pub sharedInbox: Option<String>
+}
+
+// ActivityStreams2/AcitivityPub properties are expressed in CamelCase
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
+pub struct Outbox
+{
+    #[serde(rename = "@context")]
+    pub context: String,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub id: String,
+    pub totalItems: i64,
+    pub orderedItems: Vec<Activity>
+}
+
+// Refetches remote actor and detects changes to icon, username, keys and summary
+// [TODO]
+pub fn refresh()
+{
+
+}
+
+pub fn get_json_by_preferred_username(preferred_username: String) -> JsonValue
+{
+    let database = database::establish_connection();
+
+    match actor::get_local_actor_by_preferred_username(&database, preferred_username)
+    {
+        Ok(actor) => json!(serialize_from_internal_actor(actor)),
+        Err(_) => json!({"error": "User not found."})
+    }
+}
+
+pub fn serialize_from_internal_actor(actor: actor::Actor) -> Actor
+{
+    Actor
+    {
+        context: vec![serde_json::json!("https://www.w3.org/ns/activitystreams"),
+        serde_json::json!("https://w3id.org/security/v1")],
+        _type: String::from("Person"),
+        id: actor.actor_uri.clone(),
+        summary: actor.summary.clone(),
+        following: format!("{}/following", actor.actor_uri.clone()),
+        followers: format!("{}/followers", actor.actor_uri.clone()),
+        inbox: format!("{}/inbox", actor.actor_uri.clone()),
+        outbox: format!("{}/outbox", actor.actor_uri.clone()),
+        preferredUsername: actor.preferred_username.clone(),
+        name: actor.username.clone(),
+        publicKey: serde_json::json!({
+            "id": format!("{}#main-key", actor.actor_uri.clone()),
+            "owner": actor.actor_uri.clone(),
+            "publicKeyPem": actor.keys["public"].clone()
+        }),
+        url: actor.actor_uri.clone(),
+        icon: Some(serde_json::json!({"url":actor.icon,
+        "type": "Image"})),
+        sharedInbox: Some(format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))))
+        }
+
+    }
+
+pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor
+{
+    let actor_inbox = if ap_actor.sharedInbox.is_some() { ap_actor.sharedInbox }
+    else { Some(ap_actor.inbox) };
+
+    let actor_icon = if ap_actor.icon.is_some() { Some(ap_actor.icon.unwrap()["url"].as_str().unwrap().to_string()) }
+    else { None };
+
+    actor::Actor {
+        id: 0, // Fill with placeholder value, this property will get ignored
+        email: None,
+        password: None,
+        actor_uri: ap_actor.id,
+        username: ap_actor.name,
+        preferred_username: ap_actor.preferredUsername,
+        summary: ap_actor.summary,
+        inbox: actor_inbox,
+        icon: actor_icon,
+        local: false,
+        keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]})
+    }
+}
