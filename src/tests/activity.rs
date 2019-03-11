@@ -5,6 +5,41 @@ use tests::utils::valid_local_dummy_create_activity;
 use tests::utils::valid_remote_dummy_create_activity;
 
 #[test]
+fn get_ap_activity_by_id()
+{
+    let database = database::establish_connection();
+    let test_activity = serde_json::json!({
+        "context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
+        "type": "Create",
+        "id": "https://example.tld/activities/5b4f7e70-8467-44ef-8278-9729b5c11ba7",
+        "actor": "https://example.tld/alyssa",
+        "object": {
+            "type": "Note",
+            "id": "https://example.tld/objects/b2192a75-8c9d-4fe0-9012-0b21e98e6e2b",
+            "attributedTo": "https://example.tld/alyssa",
+            "inReplyTo": null,
+            "content": "Have you already received your swimsuit?",
+            "published": "2015-02-10T15:04:55Z",
+            "to": ["https://remote.tld/ben"],
+            "cc": ["https://www.w3.org/ns/activitystreams#Public"]
+        },
+        "published": "2015-02-10T15:04:55Z",
+        "to": ["https://remote.tld/ben"],
+        "cc": ["https://www.w3.org/ns/activitystreams#Public"]
+    });
+
+    activity::insert_activity(&database, ap_activity::create_internal_activity(test_activity, String::from("https://example.tld/alyssa")));
+    let result = activity::get_ap_activity_by_id(&database, "https://example.tld/activities/5b4f7e70-8467-44ef-8278-9729b5c11ba7");
+    activity::delete_ap_activity_by_id(&database, String::from("https://example.tld/activities/5b4f7e70-8467-44ef-8278-9729b5c11ba7"));
+
+    match result
+    {
+        Ok(_) => assert!(true),
+        Err(_) => assert!(false, "AP activity should exist")
+    }
+}
+
+#[test]
 fn get_ap_object_by_id()
 {
     let database = database::establish_connection();
@@ -12,7 +47,7 @@ fn get_ap_object_by_id()
     let test_actor = String::from("https://remote.tld/ben");
 
     activity::insert_activity(&database, ap_activity::create_internal_activity(valid_remote_dummy_create_activity(test_object_id.clone(), None), String::from("https://remote.tld/ben")));
-    let result = activity::get_ap_object_by_id(&database, &test_object_id.clone());
+    let result = activity::get_ap_object_by_id(&database, &test_object_id);
     activity::delete_ap_object_by_id(&database, test_object_id);
 
     match result

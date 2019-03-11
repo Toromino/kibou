@@ -27,6 +27,23 @@ pub fn get_activity_by_id(db_connection: &PgConnection, activity_id: i64) -> Res
         }
 }
 
+pub fn get_ap_activity_by_id(db_connection: &PgConnection, activity_id: &str) -> Result<Activity, diesel::result::Error>
+{
+    match sql_query(format!("SELECT * FROM activities WHERE data->>'id' = '{}' LIMIT 1;", activity_id))
+         .clone()
+         .load::<QueryActivity>(db_connection)
+     {
+         Ok(activity) => {
+             if !activity.is_empty()
+             {
+                 let new_activity = std::borrow::ToOwned::to_owned(&activity[0]);
+                 Ok(serialize_activity(new_activity))
+             } else { Err(diesel::result::Error::NotFound) }
+         },
+         Err(e) => Err(e),
+     }
+}
+
 /// # Note
 ///
 /// [TODO]
@@ -112,6 +129,12 @@ pub fn insert_activity(db_connection: &PgConnection, activity: Activity)
     .values(new_activity)
     .execute(db_connection)
     .expect("Error creating activity");
+}
+
+pub fn delete_ap_activity_by_id (db_connection: &PgConnection, activity_id: String)
+{
+    sql_query(format!("DELETE FROM activities WHERE data->>'id' = '{}';", activity_id))
+    .execute(db_connection);
 }
 
 pub fn delete_ap_object_by_id (db_connection: &PgConnection, object_id: String)
