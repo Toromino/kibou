@@ -32,7 +32,7 @@ pub struct Actor
     pub publicKey: serde_json::Value,
     pub url: String,
     pub icon: Option<serde_json::Value>,
-    pub sharedInbox: Option<String>
+    pub endpoints: serde_json::Value
 }
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
@@ -128,14 +128,14 @@ pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor
         url: actor.actor_uri.clone(),
         icon: Some(serde_json::json!({"url":actor.icon,
         "type": "Image"})),
-        sharedInbox: Some(format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))))
+        endpoints: serde_json::json!({"sharedInbox": format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))})
         }
 
     }
 
 pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor
 {
-    let actor_inbox = if ap_actor.sharedInbox.is_some() { ap_actor.sharedInbox }
+    let actor_inbox = if ap_actor.endpoints.get("sharedInbox").is_some() { Some(ap_actor.endpoints["sharedInbox"].as_str().unwrap().to_string()) }
     else { Some(ap_actor.inbox) };
 
     let actor_icon = if ap_actor.icon.is_some() { Some(ap_actor.icon.unwrap()["url"].as_str().unwrap().to_string()) }
