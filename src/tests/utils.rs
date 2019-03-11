@@ -15,7 +15,8 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor
         inbox: None,
         icon: Some(String::from("https://i.imgur.com/NXOJzr3.png")),
         keys: serde_json::json!({}),
-        local: true
+        local: true,
+        followers: serde_json::json!({"activitypub": []})
     };
 
     actor::create_actor(&database, &mut test_actor);
@@ -43,7 +44,8 @@ pub fn create_remote_test_actor(username: &str) -> actor::Actor
         inbox: Some(String::from("https://remote.tld/inbox")),
         icon: Some(String::from("https://i.imgur.com/NXOJzr3.png")),
         keys: serde_json::json!({}),
-        local: false
+        local: false,
+        followers: serde_json::json!({"activitypub": []})
     };
 
     actor::create_actor(&database, &mut test_actor);

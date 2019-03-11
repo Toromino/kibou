@@ -1,5 +1,6 @@
 use activitypub::activity::Activity;
 use actor;
+use chrono::Utc;
 use database;
 use env;
 use rocket_contrib::json;
@@ -48,6 +49,25 @@ pub struct Outbox
     pub orderedItems: Vec<Activity>
 }
 
+pub fn add_follow(account: &str, source: &str)
+{
+    let database = database::establish_connection();
+    let mut actor = actor::get_actor_by_uri(&database, &account).unwrap();
+    let followers: serde_json::Value = actor.followers["activitypub"].clone();
+
+    let follow_data = serde_json::from_value(followers);
+
+    if follow_data.is_ok()
+    {
+        let mut follow_data: Vec<serde_json::Value> = follow_data.unwrap();
+        let new_follow_data = serde_json::json!({"href" : source, "follow_date": Utc::now().to_rfc3339().to_string()});
+        follow_data.push(new_follow_data);
+
+        actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
+        actor::update_followers(&database, &mut actor);
+    }
+}
+
 // Refetches remote actor and detects changes to icon, username, keys and summary
 // [TODO]
 pub fn refresh()
@@ -61,12 +81,12 @@ pub fn get_json_by_preferred_username(preferred_username: String) -> JsonValue
 
     match actor::get_local_actor_by_preferred_username(&database, preferred_username)
     {
-        Ok(actor) => json!(serialize_from_internal_actor(actor)),
+        Ok(actor) => json!(serialize_from_internal_actor(&actor)),
         Err(_) => json!({"error": "User not found."})
     }
 }
 
-pub fn serialize_from_internal_actor(actor: actor::Actor) -> Actor
+pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor
 {
     Actor
     {
@@ -113,6 +133,7 @@ pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor
         inbox: actor_inbox,
         icon: actor_icon,
         local: false,
-        keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]})
+        keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]}),
+        followers: serde_json::json!({"activitypub": []})
     }
 }

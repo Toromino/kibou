@@ -1,4 +1,5 @@
 use actor;
+use activitypub::actor::add_follow;
 use base64;
 use database;
 use openssl::hash::MessageDigest;
@@ -52,6 +53,39 @@ fn update_local_keys()
     delete_test_actor(test_actor);
 
     assert_ne!(test_actor_pkey, test_actor_new_pkey);
+}
+
+#[test]
+fn is_actor_followed_by()
+{
+    let database = database::establish_connection();
+    let test_actor = create_local_test_actor("d99eb450-65a0-4c9a-8092-b1b0fd71941a");
+    let test_follower_1 = create_remote_test_actor("51df1b86-db1c-458b-9f76-7032275c867b");
+    let test_follower_1_uri = test_follower_1.actor_uri.clone();
+
+    add_follow(&test_actor.actor_uri, &test_follower_1_uri);
+
+    match actor::is_actor_followed_by(&database, &test_actor, &test_follower_1.actor_uri)
+    {
+        Ok(true) => {
+            delete_test_actor(test_actor);
+            delete_test_actor(test_follower_1);
+
+            assert!(true)
+        },
+        Ok(false) => {
+            delete_test_actor(test_actor);
+            delete_test_actor(test_follower_1);
+
+            assert!(false, "Follow should exist")
+        },
+        Err(_) => {
+            delete_test_actor(test_actor);
+            delete_test_actor(test_follower_1);
+
+            assert!(false, "An error occured")
+        }
+    }
 }
 
 #[test]
@@ -189,7 +223,8 @@ fn create_actor_with_optional_values()
         inbox: None,
         icon: None,
         keys: serde_json::json!({}),
-        local: false
+        local: false,
+        followers: serde_json::json!({"activitypub": []})
     };
 
     let email = test_actor.email.clone();

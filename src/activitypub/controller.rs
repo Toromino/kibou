@@ -1,8 +1,10 @@
 use actor::create_actor as create_actor;
 use actor::get_actor_by_uri;
+use actor::is_actor_followed_by;
 use activity::get_ap_object_by_id;
 use activity::insert_activity;
 use activitypub::actor::Actor;
+use activitypub::actor::add_follow;
 use activitypub::actor::create_internal_actor;
 use activitypub::activity::Activity;
 use activitypub::activity::Object;
@@ -14,6 +16,28 @@ use env;
 use url::Url;
 use uuid::Uuid;
 use web_handler;
+
+pub fn activity_accept(_actor: &str, _object: &str) -> Activity
+{
+    let database = database::establish_connection();
+    let new_activity = Activity
+    {
+        context: vec![String::from("https://www.w3.org/ns/activitystreams"), String::from("https://w3id.org/security/v1")],
+        _type: String::from("Accept"),
+        id: format!("{base_scheme}://{base_domain}/activities/{uuid}",
+        base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+        base_domain = env::get_value(String::from("endpoint.base_domain")),
+        uuid = Uuid::new_v4()),
+        actor: _actor.to_string(),
+        object: serde_json::json!(_object),
+        published: Utc::now().to_rfc3339().to_string(),
+        to: vec![],
+        cc: vec![]
+    };
+
+    insert_activity(&database, create_internal_activity(serde_json::json!(&new_activity), new_activity.actor.clone()));
+    new_activity
+}
 
 /// Creates a new activity, inserts it into the database and returns the newly created activity
 ///
@@ -302,6 +326,39 @@ fn handle_activity(activity: serde_json::Value)
 
             insert_activity(&database, create_internal_activity(activity, actor));
         },
+        Some("Follow") => {
+            if !actor_exists(activity["actor"].as_str().unwrap())
+            {
+                fetch_object_by_id(activity["actor"].as_str().unwrap().to_string());
+            }
+
+            match get_actor_by_uri(&database, activity["actor"].as_str().unwrap())
+            {
+                Ok(remote_account) => {
+                    match get_actor_by_uri(&database, activity["object"].as_str().unwrap())
+                    {
+                        Ok(account) =>
+                        {
+                            match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
+                            {
+                                Ok(false) => {
+                                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+
+                                    add_follow(&account.actor_uri, &remote_account.actor_uri);
+                                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
+                                }
+                                Ok(true) => (),
+                                Err(_) => ()
+                            }
+                        },
+                        Err(_) => ()
+                    }
+                },
+                Err(_) => ()
+            }
+
+            insert_activity(&database, create_internal_activity(activity, actor));
+        }
         _ => ()
     }
 

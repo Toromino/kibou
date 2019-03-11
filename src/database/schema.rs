@@ -23,6 +23,7 @@ table! {
         created -> Timestamp,
         modified -> Timestamp,
         local -> Bool,
+        followers -> Jsonb,
     }
 }
 
