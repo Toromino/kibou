@@ -5,6 +5,7 @@ use activity::get_ap_object_by_id;
 use activity::insert_activity;
 use activitypub::actor::Actor;
 use activitypub::actor::add_follow;
+use activitypub::actor::remove_follow;
 use activitypub::actor::create_internal_actor;
 use activitypub::activity::Activity;
 use activitypub::activity::Object;
@@ -332,28 +333,36 @@ fn handle_activity(activity: serde_json::Value)
                 fetch_object_by_id(activity["actor"].as_str().unwrap().to_string());
             }
 
-            match get_actor_by_uri(&database, activity["actor"].as_str().unwrap())
-            {
-                Ok(remote_account) => {
-                    match get_actor_by_uri(&database, activity["object"].as_str().unwrap())
-                    {
-                        Ok(account) =>
-                        {
-                            match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
-                            {
-                                Ok(false) => {
-                                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+            let remote_account = get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap();
+            let account = get_actor_by_uri(&database, activity["object"].as_str().unwrap()).unwrap();
 
-                                    add_follow(&account.actor_uri, &remote_account.actor_uri);
-                                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
-                                }
-                                Ok(true) => (),
-                                Err(_) => ()
-                            }
-                        },
-                        Err(_) => ()
-                    }
-                },
+            match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
+            {
+                Ok(false) => {
+                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+
+                    add_follow(&account.actor_uri, &remote_account.actor_uri);
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
+                }
+                Ok(true) => (),
+                Err(_) => ()
+            }
+
+            insert_activity(&database, create_internal_activity(activity, actor));
+        },
+        Some("Unfollow") => {
+            let remote_account = get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap();
+            let account = get_actor_by_uri(&database, activity["object"].as_str().unwrap()).unwrap();
+
+            match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
+            {
+                Ok(true) => {
+                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+
+                    remove_follow(&account.actor_uri, &remote_account.actor_uri);
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
+                }
+                Ok(false) => (),
                 Err(_) => ()
             }
 

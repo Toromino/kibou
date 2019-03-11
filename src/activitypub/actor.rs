@@ -68,6 +68,25 @@ pub fn add_follow(account: &str, source: &str)
     }
 }
 
+pub fn remove_follow(account: &str, source: &str)
+{
+    let database = database::establish_connection();
+    let mut actor = actor::get_actor_by_uri(&database, &account).unwrap();
+    let followers: serde_json::Value = actor.followers["activitypub"].clone();
+
+    let follow_data = serde_json::from_value(followers);
+
+    if follow_data.is_ok()
+    {
+        let mut follow_data: Vec<serde_json::Value> = follow_data.unwrap();
+        let index = follow_data.iter().position(|ref follow| follow["href"] == source).unwrap();
+        follow_data.remove(index);
+
+        actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
+        actor::update_followers(&database, &mut actor);
+    }
+}
+
 // Refetches remote actor and detects changes to icon, username, keys and summary
 // [TODO]
 pub fn refresh()
