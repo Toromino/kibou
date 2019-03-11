@@ -342,9 +342,17 @@ fn handle_activity(activity: serde_json::Value)
                     let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
 
                     add_follow(&account.actor_uri, &remote_account.actor_uri);
-                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
                 }
-                Ok(true) => (),
+
+                // *Note*
+                //
+                // Kibou should still send a `Accept` activity even if one was already sent, in
+                // case the original `Accept` activity did not reach the remote server.
+                Ok(true) => {
+                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
+                },
                 Err(_) => ()
             }
 
@@ -360,9 +368,17 @@ fn handle_activity(activity: serde_json::Value)
                     let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
 
                     remove_follow(&account.actor_uri, &remote_account.actor_uri);
-                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()])
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
                 }
-                Ok(false) => (),
+
+                // *Note*
+                //
+                // Kibou should still send a `Accept` activity even if one was already sent, in
+                // case the original `Accept` activity did not reach the remote server.
+                Ok(false) => {
+                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
+                },
                 Err(_) => ()
             }
 
