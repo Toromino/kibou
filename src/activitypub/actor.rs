@@ -1,5 +1,6 @@
 use activitypub::activity::Activity;
 use actor;
+use chrono::Utc;
 use database;
 use env;
 use rocket_contrib::json;
@@ -31,7 +32,7 @@ pub struct Actor
     pub publicKey: serde_json::Value,
     pub url: String,
     pub icon: Option<serde_json::Value>,
-    pub sharedInbox: Option<String>
+    pub endpoints: serde_json::Value
 }
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
@@ -48,6 +49,44 @@ pub struct Outbox
     pub orderedItems: Vec<Activity>
 }
 
+pub fn add_follow(account: &str, source: &str)
+{
+    let database = database::establish_connection();
+    let mut actor = actor::get_actor_by_uri(&database, &account).unwrap();
+    let followers: serde_json::Value = actor.followers["activitypub"].clone();
+
+    let follow_data = serde_json::from_value(followers);
+
+    if follow_data.is_ok()
+    {
+        let mut follow_data: Vec<serde_json::Value> = follow_data.unwrap();
+        let new_follow_data = serde_json::json!({"href" : source, "follow_date": Utc::now().to_rfc3339().to_string()});
+        follow_data.push(new_follow_data);
+
+        actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
+        actor::update_followers(&database, &mut actor);
+    }
+}
+
+pub fn remove_follow(account: &str, source: &str)
+{
+    let database = database::establish_connection();
+    let mut actor = actor::get_actor_by_uri(&database, &account).unwrap();
+    let followers: serde_json::Value = actor.followers["activitypub"].clone();
+
+    let follow_data = serde_json::from_value(followers);
+
+    if follow_data.is_ok()
+    {
+        let mut follow_data: Vec<serde_json::Value> = follow_data.unwrap();
+        let index = follow_data.iter().position(|ref follow| follow["href"] == source).unwrap();
+        follow_data.remove(index);
+
+        actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
+        actor::update_followers(&database, &mut actor);
+    }
+}
+
 // Refetches remote actor and detects changes to icon, username, keys and summary
 // [TODO]
 pub fn refresh()
@@ -61,12 +100,12 @@ pub fn get_json_by_preferred_username(preferred_username: String) -> JsonValue
 
     match actor::get_local_actor_by_preferred_username(&database, preferred_username)
     {
-        Ok(actor) => json!(serialize_from_internal_actor(actor)),
+        Ok(actor) => json!(serialize_from_internal_actor(&actor)),
         Err(_) => json!({"error": "User not found."})
     }
 }
 
-pub fn serialize_from_internal_actor(actor: actor::Actor) -> Actor
+pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor
 {
     Actor
     {
@@ -89,14 +128,14 @@ pub fn serialize_from_internal_actor(actor: actor::Actor) -> Actor
         url: actor.actor_uri.clone(),
         icon: Some(serde_json::json!({"url":actor.icon,
         "type": "Image"})),
-        sharedInbox: Some(format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))))
+        endpoints: serde_json::json!({"sharedInbox": format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))})
         }
 
     }
 
 pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor
 {
-    let actor_inbox = if ap_actor.sharedInbox.is_some() { ap_actor.sharedInbox }
+    let actor_inbox = if ap_actor.endpoints.get("sharedInbox").is_some() { Some(ap_actor.endpoints["sharedInbox"].as_str().unwrap().to_string()) }
     else { Some(ap_actor.inbox) };
 
     let actor_icon = if ap_actor.icon.is_some() { Some(ap_actor.icon.unwrap()["url"].as_str().unwrap().to_string()) }
@@ -113,6 +152,7 @@ pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor
         inbox: actor_inbox,
         icon: actor_icon,
         local: false,
-        keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]})
+        keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]}),
+        followers: serde_json::json!({"activitypub": []})
     }
 }

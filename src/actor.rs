@@ -23,6 +23,7 @@ pub struct Actor
     pub username: Option<String>,
     pub preferred_username: String,
     pub summary: Option<String>,
+    pub followers: serde_json::Value,
     pub inbox: Option<String>,
     pub icon: Option<String>,
     pub local: bool,
@@ -131,8 +132,41 @@ fn serialize_actor(sql_actor: QueryActor) -> Actor
         inbox: sql_actor.inbox,
         icon: sql_actor.icon,
         keys: sql_actor.keys,
-        local: sql_actor.local
+        local: sql_actor.local,
+        followers: sql_actor.followers
     }
+}
+
+pub fn is_actor_followed_by(db_connection: &PgConnection, actor: &Actor, followee: &str) -> Result<bool, diesel::result::Error>
+{
+    match actors
+         .filter(actor_uri.eq(&actor.actor_uri))
+         .limit(1)
+         .first::<QueryActor>(db_connection)
+     {
+         Ok(actor) =>
+         {
+             match actor.followers["activitypub"].as_array()
+             {
+                 Some(follows) =>
+                 {
+                     let mut follow_exists: bool = false;
+
+                     for follow in follows
+                     {
+                         if follow["href"].as_str() == Some(followee)
+                         {
+                             follow_exists = true;
+                         }
+                     }
+
+                     Ok(follow_exists)
+                 },
+                 None => Ok(false)
+             }
+         },
+         Err(e) => Err(e),
+     }
 }
 
 pub fn get_actor_by_acct(db_connection: &PgConnection, acct: String) -> Result<Actor, diesel::result::Error>
@@ -224,7 +258,7 @@ pub fn get_local_actor_by_preferred_username(db_connection: &PgConnection, _pref
 /// - create_local_actor()
 /// - create_remote_actor()
 /// - create_actor_with_optional_values()
-pub fn create_actor (db_connection: &PgConnection, actor: &mut Actor)
+pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor)
     {
 
         if actor.local && actor.keys == serde_json::json!({})
@@ -262,9 +296,17 @@ pub fn create_actor (db_connection: &PgConnection, actor: &mut Actor)
 /// Tests for this function are at `tests/actor.rs`
 /// - delete_local_actor()
 /// - delete_remote_actor()
-pub fn delete (db_connection: &PgConnection, actor: &mut Actor)
+pub fn delete(db_connection: &PgConnection, actor: &mut Actor)
 {
     diesel::delete(actors.filter(actor_uri.eq(&actor.actor_uri)))
     .execute(db_connection)
     .expect("Error deleting user");
+}
+
+pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor)
+{
+    diesel::update(actors.filter(actor_uri.eq(&actor.actor_uri)))
+    .set(followers.eq(&actor.followers))
+    .execute(db_connection)
+    .expect("Error updating followers");
 }

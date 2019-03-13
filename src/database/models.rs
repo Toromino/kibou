@@ -37,4 +37,5 @@ pub struct QueryActor
     pub created: NaiveDateTime,
     pub modified: NaiveDateTime,
     pub local: bool,
+    pub followers: serde_json::Value,
 }
