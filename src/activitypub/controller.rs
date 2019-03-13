@@ -366,7 +366,7 @@ fn handle_activity(activity: serde_json::Value)
             {
                 "Follow" =>
                 {
-                    let account = get_actor_by_uri(&database, &object.actor).unwrap();
+                    let account = get_actor_by_uri(&database, object.data["object"].as_str().unwrap()).unwrap();
 
                     match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
                     {
