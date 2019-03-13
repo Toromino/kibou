@@ -1,6 +1,7 @@
 use actor::create_actor as create_actor;
 use actor::get_actor_by_uri;
 use actor::is_actor_followed_by;
+use activity::get_ap_activity_by_id;
 use activity::get_ap_object_by_id;
 use activity::insert_activity;
 use activitypub::actor::Actor;
@@ -187,11 +188,10 @@ pub fn fetch_object_by_id(url: String)
 /// [TODO]
 pub fn prepare_incoming(object: serde_json::Value)
 {
-    match validator::validate_activity(object) {
+    match validator::validate_activity(object)
+    {
         Ok(sanitized_activity) => handle_activity(sanitized_activity),
-        Err(_) => {
-            eprintln!("{}", String::from("Validation failed for activity: "));
-        }
+        Err(_) => eprintln!("{}", String::from("Validation failed for activity: "))
     }
 }
 
@@ -358,31 +358,27 @@ fn handle_activity(activity: serde_json::Value)
 
             insert_activity(&database, create_internal_activity(activity, actor));
         },
-        Some("Unfollow") => {
+        Some("Undo") => {
             let remote_account = get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap();
-            let account = get_actor_by_uri(&database, activity["object"].as_str().unwrap()).unwrap();
+            let object = get_ap_activity_by_id(&database, activity["object"]["id"].as_str().unwrap()).unwrap();
 
-            match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
+            match object.data["type"].as_str().unwrap()
             {
-                Ok(true) => {
-                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
+                "Follow" =>
+                {
+                    let account = get_actor_by_uri(&database, &object.actor).unwrap();
 
-                    remove_follow(&account.actor_uri, &remote_account.actor_uri);
-                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
-                }
+                    match is_actor_followed_by(&database, &account, activity["actor"].as_str().unwrap())
+                    {
+                        Ok(true) => remove_follow(&account.actor_uri, &remote_account.actor_uri),
+                        Ok(false) => (),
+                        Err(_) => ()
+                    }
 
-                // *Note*
-                //
-                // Kibou should still send a `Accept` activity even if one was already sent, in
-                // case the original `Accept` activity did not reach the remote server.
-                Ok(false) => {
-                    let new_activity = serde_json::to_value(activity_accept(&account.actor_uri, activity["id"].as_str().unwrap())).unwrap();
-                    web_handler::federator::enqueue(account, new_activity, vec![remote_account.inbox.unwrap()]);
+                    insert_activity(&database, create_internal_activity(activity.clone(), actor.clone()));
                 },
-                Err(_) => ()
+                &_ => ()
             }
-
-            insert_activity(&database, create_internal_activity(activity, actor));
         }
         _ => ()
     }

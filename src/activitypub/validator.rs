@@ -5,7 +5,7 @@ pub fn validate_activity(activity: serde_json::Value) -> Result<serde_json::Valu
         Some("Update") => true,
         Some("Delete") => true,
         Some("Follow") => true,
-        Some("Unfollow") => true,
+        Some("Undo") => true,
         Some("Like") => true,
         Some("Announce") => true,
         _ => false
