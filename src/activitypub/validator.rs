@@ -1,32 +1,99 @@
+use activitypub::controller::actor_exists;
 use regex::Regex;
 use url::Url;
 use web_handler;
 
+// *Notes*
+//
+// [TODO]
+// Verification of HTTP signatures, therefore a validation of IDs is not needed
 pub fn validate_activity(activity: serde_json::Value) -> Result<serde_json::Value, &'static str>
 {
-    let known_type = match activity["type"].as_str() {
-        Some("Create") => true,
-        Some("Update") => true,
-        Some("Delete") => true,
-        Some("Follow") => true,
-        Some("Undo") => true,
-        Some("Like") => true,
-        Some("Announce") => true,
-        _ => false
-    };
+    let known_type = if activity.get("type").is_some()
+    {
+        match activity["type"].as_str() {
+            Some("Create") => true,
+            Some("Update") => true,
+            Some("Delete") => true,
+            Some("Follow") => true,
+            Some("Undo") => true,
+            Some("Like") => true,
+            Some("Announce") => true,
+            _ => false
+        }
+    } else {false};
 
-    if known_type { Ok(activity) } else { Err("Activity could not be validated") }
+    let valid_actor = if activity.get("actor").is_some()
+    {
+        if actor_exists(activity["actor"].as_str().unwrap())
+        { true }
+
+        else
+        {
+            match web_handler::fetch_remote_object(activity["actor"].as_str().unwrap())
+            {
+                Ok(remote_object) => {
+                    let json_object: serde_json::Value = serde_json::from_str(&remote_object).unwrap();
+                    validate_actor(json_object).is_ok()
+                },
+                Err(_) => false
+            }
+        }
+    } else { false };
+
+    if known_type && valid_actor
+    { Ok(activity) }
+    else
+    { Err("Activity could not be validated") }
 }
 
 pub fn validate_object(object: serde_json::Value) -> Result<serde_json::Value, &'static str>
 {
-    let known_type = match object["type"].as_str() {
-        Some("Note") => true,
-        Some("Article") => true,
-        _ => false
-    };
+    let known_type = if object.get("type").is_some()
+    {
+        match object["type"].as_str() {
+            Some("Note") => true,
+            Some("Article") => true,
+            _ => false
+        }
+    } else { false };
 
-    if known_type { Ok(object) } else { Err("Object could not be validated") }
+    // *Notes*
+    //
+    // [TODO]
+    // Verification of IDs should be disabled if HTTP signatures are valid
+    // The current behaviour marks non-public objects as invalid
+    let valid_id = if object.get("id").is_some()
+    {
+        match parse_url(object["id"].as_str().unwrap())
+        {
+            Ok(url) => valid_self_reference(&object, &url),
+            Err(_) => false
+        }
+    } else { false };
+
+    let valid_actor = if object.get("attributedTo").is_some()
+    {
+        if actor_exists(object["attributedTo"].as_str().unwrap())
+        { true }
+
+        else
+        {
+            match web_handler::fetch_remote_object(object["attributedTo"].as_str().unwrap())
+            {
+                Ok(remote_object) => {
+                    let json_object: serde_json::Value = serde_json::from_str(&remote_object).unwrap();
+                    validate_actor(json_object).is_ok()
+                },
+                Err(_) => false
+            }
+        }
+    } else { false };
+
+    if known_type && valid_id && valid_actor
+    { Ok(object) }
+    else
+    { Err("Object could not be validated") }
 }
 
 pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'static str>
@@ -34,9 +101,9 @@ pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'s
     let known_type = if actor.get("type").is_some()
     {
         match actor["type"].as_str() {
-        Some("Person") => true,
-        _ => false
-    }
+            Some("Person") => true,
+            _ => false
+        }
     } else { false };
 
     let valid_id = if actor.get("id").is_some()
