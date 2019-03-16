@@ -219,9 +219,11 @@ pub fn fetch_object_by_id(url: String) {
 ///
 /// [TODO]
 pub fn prepare_incoming(object: serde_json::Value) {
+    let object_string = &object.to_string();
+
     match validator::validate_activity(object) {
         Ok(sanitized_activity) => handle_activity(sanitized_activity),
-        Err(_) => eprintln!("{}", String::from("Validation failed for activity: ")),
+        Err(_) => eprintln!("Validation failed for activity: {}", object_string),
     }
 }
 
