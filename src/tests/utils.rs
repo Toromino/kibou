@@ -1,8 +1,7 @@
 use actor;
 use database;
 
-pub fn create_local_test_actor(username: &str) -> actor::Actor
-{
+pub fn create_local_test_actor(username: &str) -> actor::Actor {
     let database = database::establish_connection();
     let mut test_actor = actor::Actor {
         id: 0,
@@ -16,22 +15,22 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor
         icon: Some(String::from("https://i.imgur.com/NXOJzr3.png")),
         keys: serde_json::json!({}),
         local: true,
-        followers: serde_json::json!({"activitypub": []})
+        followers: serde_json::json!({"activitypub": []}),
     };
 
     actor::create_actor(&database, &mut test_actor);
-    test_actor.id = actor::get_actor_by_uri(&database, &test_actor.actor_uri).unwrap().id;
+    test_actor.id = actor::get_actor_by_uri(&database, &test_actor.actor_uri)
+        .unwrap()
+        .id;
     test_actor
 }
 
-pub fn delete_test_actor(mut actor: actor::Actor)
-{
+pub fn delete_test_actor(mut actor: actor::Actor) {
     let database = database::establish_connection();
     actor::delete(&database, &mut actor);
 }
 
-pub fn create_remote_test_actor(username: &str) -> actor::Actor
-{
+pub fn create_remote_test_actor(username: &str) -> actor::Actor {
     let database = database::establish_connection();
     let mut test_actor = actor::Actor {
         id: 0,
@@ -45,16 +44,20 @@ pub fn create_remote_test_actor(username: &str) -> actor::Actor
         icon: Some(String::from("https://i.imgur.com/NXOJzr3.png")),
         keys: serde_json::json!({}),
         local: false,
-        followers: serde_json::json!({"activitypub": []})
+        followers: serde_json::json!({"activitypub": []}),
     };
 
     actor::create_actor(&database, &mut test_actor);
-    test_actor.id = actor::get_actor_by_uri(&database, &test_actor.actor_uri).unwrap().id;
+    test_actor.id = actor::get_actor_by_uri(&database, &test_actor.actor_uri)
+        .unwrap()
+        .id;
     test_actor
 }
 
-pub fn valid_local_dummy_create_activity(object_id: String, in_reply_to: Option<String>) -> serde_json::Value
-{
+pub fn valid_local_dummy_create_activity(
+    object_id: String,
+    in_reply_to: Option<String>,
+) -> serde_json::Value {
     serde_json::json!({
         "context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
         "type": "Create",
@@ -76,8 +79,10 @@ pub fn valid_local_dummy_create_activity(object_id: String, in_reply_to: Option<
     })
 }
 
-pub fn valid_remote_dummy_create_activity(object_id: String, in_reply_to: Option<String>) -> serde_json::Value
-{
+pub fn valid_remote_dummy_create_activity(
+    object_id: String,
+    in_reply_to: Option<String>,
+) -> serde_json::Value {
     serde_json::json!({
         "context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
         "type": "Create",
