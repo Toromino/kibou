@@ -1,11 +1,10 @@
 use chrono::NaiveDateTime;
-use database::schema::actors;
 use database::schema::activities;
+use database::schema::actors;
 
 #[derive(Queryable, PartialEq, QueryableByName, Clone)]
-#[table_name="activities"]
-pub struct QueryActivity
-{
+#[table_name = "activities"]
+pub struct QueryActivity {
     pub id: i64,
     pub data: serde_json::Value,
     pub created: NaiveDateTime,
@@ -14,16 +13,15 @@ pub struct QueryActivity
 }
 
 #[derive(Insertable)]
-#[table_name="activities"]
+#[table_name = "activities"]
 pub struct InsertActivity<'a> {
     pub data: &'a serde_json::Value,
     pub actor_uri: &'a String,
 }
 
 #[derive(Queryable, PartialEq, QueryableByName, Clone)]
-#[table_name="actors"]
-pub struct QueryActor
-{
+#[table_name = "actors"]
+pub struct QueryActor {
     pub id: i64,
     pub email: Option<String>,
     pub password: Option<String>,

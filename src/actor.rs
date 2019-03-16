@@ -1,11 +1,11 @@
-use database::models::{QueryActor};
+use database::models::QueryActor;
 use database::schema::actors;
 use database::schema::actors::dsl::*;
-use diesel::ExpressionMethods;
 use diesel::pg::PgConnection;
 use diesel::query_dsl::QueryDsl;
 use diesel::query_dsl::RunQueryDsl;
 use diesel::sql_query;
+use diesel::ExpressionMethods;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
@@ -14,8 +14,7 @@ use pem::Pem;
 use serde_json;
 use url::Url;
 
-pub struct Actor
-{
+pub struct Actor {
     pub id: i64,
     pub email: Option<String>,
     pub password: Option<String>,
@@ -27,30 +26,26 @@ pub struct Actor
     pub inbox: Option<String>,
     pub icon: Option<String>,
     pub local: bool,
-    pub keys: serde_json::Value
+    pub keys: serde_json::Value,
 }
 
-impl Actor
-{
+impl Actor {
     /// Generates a new keypair and returns it as a serde_json::Value
     ///
     /// # Tests
     ///
     /// Tests for this function are in `tests/actor.rs`
     /// - generate_new_keys()
-    fn generate_new_keys (&mut self) -> serde_json::Value
-    {
+    fn generate_new_keys(&mut self) -> serde_json::Value {
         let rsa_keys = Rsa::generate(2048).unwrap();
-        let public_key = Pem
-        {
+        let public_key = Pem {
             tag: String::from("PUBLIC KEY"),
-            contents: rsa_keys.public_key_to_der().unwrap()
+            contents: rsa_keys.public_key_to_der().unwrap(),
         };
 
-        let private_key = Pem
-        {
+        let private_key = Pem {
             tag: String::from("PRIVATE KEY"),
-            contents: rsa_keys.private_key_to_der().unwrap()
+            contents: rsa_keys.private_key_to_der().unwrap(),
         };
 
         serde_json::json!({
@@ -59,27 +54,25 @@ impl Actor
         })
     }
 
-    pub fn get_acct(&mut self) -> String
-    {
-        if self.local
-        {
+    pub fn get_acct(&mut self) -> String {
+        if self.local {
             self.preferred_username.to_string()
-        }
-        else
-        {
+        } else {
             let url = Url::parse(&self.actor_uri).unwrap();
-            format!("{username}@{host}", username=self.preferred_username, host=url.host_str().unwrap())
+            format!(
+                "{username}@{host}",
+                username = self.preferred_username,
+                host = url.host_str().unwrap()
+            )
         }
     }
 
-    pub fn get_public_key(&mut self) -> String
-    {
+    pub fn get_public_key(&mut self) -> String {
         let parsed_public_key = self.keys["public"].as_str();
         parsed_public_key.unwrap().to_string()
     }
 
-    pub fn get_private_key(&mut self) -> String
-    {
+    pub fn get_private_key(&mut self) -> String {
         let parsed_private_key = self.keys["private"].as_str();
         parsed_private_key.unwrap().to_string()
     }
@@ -95,11 +88,12 @@ impl Actor
     ///
     /// Tests for this function are in `tests/actor.rs`
     /// - sign()
-    pub fn sign(&mut self, request_string: String) -> String
-    {
+    pub fn sign(&mut self, request_string: String) -> String {
         let private_key = self.get_private_key();
         let pem_decoded = pem::parse(private_key).unwrap();
-        let pkey = PKey::from_rsa(openssl::rsa::Rsa::private_key_from_der(&pem_decoded.contents).unwrap()).unwrap();
+        let pkey =
+            PKey::from_rsa(openssl::rsa::Rsa::private_key_from_der(&pem_decoded.contents).unwrap())
+                .unwrap();
         let mut signer = Signer::new(MessageDigest::sha256(), &pkey).unwrap();
 
         signer.update(&request_string.into_bytes()).unwrap();
@@ -112,16 +106,13 @@ impl Actor
     ///
     /// Tests for this function are in `tests/actor.rs`
     /// - update_local_keys()
-    pub fn update_local_keys(&mut self)
-    {
+    pub fn update_local_keys(&mut self) {
         self.keys = self.generate_new_keys();
     }
 }
 
-fn serialize_actor(sql_actor: QueryActor) -> Actor
-{
-    Actor
-    {
+fn serialize_actor(sql_actor: QueryActor) -> Actor {
+    Actor {
         id: sql_actor.id,
         email: sql_actor.email,
         password: sql_actor.password,
@@ -133,46 +124,43 @@ fn serialize_actor(sql_actor: QueryActor) -> Actor
         icon: sql_actor.icon,
         keys: sql_actor.keys,
         local: sql_actor.local,
-        followers: sql_actor.followers
+        followers: sql_actor.followers,
     }
 }
 
-pub fn is_actor_followed_by(db_connection: &PgConnection, actor: &Actor, followee: &str) -> Result<bool, diesel::result::Error>
-{
+pub fn is_actor_followed_by(
+    db_connection: &PgConnection,
+    actor: &Actor,
+    followee: &str,
+) -> Result<bool, diesel::result::Error> {
     match actors
-         .filter(actor_uri.eq(&actor.actor_uri))
-         .limit(1)
-         .first::<QueryActor>(db_connection)
-     {
-         Ok(actor) =>
-         {
-             match actor.followers["activitypub"].as_array()
-             {
-                 Some(follows) =>
-                 {
-                     let mut follow_exists: bool = false;
+        .filter(actor_uri.eq(&actor.actor_uri))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => match actor.followers["activitypub"].as_array() {
+            Some(follows) => {
+                let mut follow_exists: bool = false;
 
-                     for follow in follows
-                     {
-                         if follow["href"].as_str() == Some(followee)
-                         {
-                             follow_exists = true;
-                         }
-                     }
+                for follow in follows {
+                    if follow["href"].as_str() == Some(followee) {
+                        follow_exists = true;
+                    }
+                }
 
-                     Ok(follow_exists)
-                 },
-                 None => Ok(false)
-             }
-         },
-         Err(e) => Err(e),
-     }
+                Ok(follow_exists)
+            }
+            None => Ok(false),
+        },
+        Err(e) => Err(e),
+    }
 }
 
-pub fn get_actor_by_acct(db_connection: &PgConnection, acct: String) -> Result<Actor, diesel::result::Error>
-{
-    if acct.contains("@")
-    {
+pub fn get_actor_by_acct(
+    db_connection: &PgConnection,
+    acct: String,
+) -> Result<Actor, diesel::result::Error> {
+    if acct.contains("@") {
         let acct_split = acct.split('@');
         let acct_vec = acct_split.collect::<Vec<&str>>();
 
@@ -189,35 +177,37 @@ pub fn get_actor_by_acct(db_connection: &PgConnection, acct: String) -> Result<A
              },
              Err(e) => Err(e),
          }
-    }
-    else
-    {
+    } else {
         get_local_actor_by_preferred_username(&db_connection, acct)
     }
 }
 
-pub fn get_actor_by_id(db_connection: &PgConnection, _id: i64) -> Result<Actor, diesel::result::Error>
-{
+pub fn get_actor_by_id(
+    db_connection: &PgConnection,
+    _id: i64,
+) -> Result<Actor, diesel::result::Error> {
     match actors
-         .filter(id.eq(_id))
-         .limit(1)
-         .first::<QueryActor>(db_connection)
-     {
-         Ok(actor) => Ok(serialize_actor(actor)),
-         Err(e) => Err(e),
-     }
+        .filter(id.eq(_id))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
 }
 
-pub fn get_actor_by_uri(db_connection: &PgConnection, _actor_uri: &str) -> Result<Actor, diesel::result::Error>
-{
+pub fn get_actor_by_uri(
+    db_connection: &PgConnection,
+    _actor_uri: &str,
+) -> Result<Actor, diesel::result::Error> {
     match actors
-         .filter(actor_uri.eq(_actor_uri))
-         .limit(1)
-         .first::<QueryActor>(db_connection)
-     {
-         Ok(actor) => Ok(serialize_actor(actor)),
-         Err(e) => Err(e),
-     }
+        .filter(actor_uri.eq(_actor_uri))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
 }
 
 /// Runs a database query based on a local actor's preferred_username, returns either
@@ -232,17 +222,19 @@ pub fn get_actor_by_uri(db_connection: &PgConnection, _actor_uri: &str) -> Resul
 ///
 /// Tests for this function are in `tests/actor.rs`
 /// - get_local_actor_by_preferred_username()
-pub fn get_local_actor_by_preferred_username(db_connection: &PgConnection, _preferred_username: String) -> Result<Actor, diesel::result::Error>
-{
+pub fn get_local_actor_by_preferred_username(
+    db_connection: &PgConnection,
+    _preferred_username: String,
+) -> Result<Actor, diesel::result::Error> {
     match actors
-         .filter(preferred_username.eq(_preferred_username))
-         .filter(local.eq(true))
-         .limit(1)
-         .first::<QueryActor>(db_connection)
-     {
-         Ok(actor) => Ok(serialize_actor(actor)),
-         Err(e) => Err(e),
-     }
+        .filter(preferred_username.eq(_preferred_username))
+        .filter(local.eq(true))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
 }
 
 /// Creates a new actor
@@ -258,15 +250,13 @@ pub fn get_local_actor_by_preferred_username(db_connection: &PgConnection, _pref
 /// - create_local_actor()
 /// - create_remote_actor()
 /// - create_actor_with_optional_values()
-pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor)
-    {
+pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor) {
+    if actor.local && actor.keys == serde_json::json!({}) {
+        actor.update_local_keys();
+    }
 
-        if actor.local && actor.keys == serde_json::json!({})
-        {
-            actor.update_local_keys();
-        }
-
-        let new_actor = (email.eq(&actor.email),
+    let new_actor = (
+        email.eq(&actor.email),
         password.eq(&actor.password),
         actor_uri.eq(&actor.actor_uri),
         username.eq(&actor.username),
@@ -275,14 +265,14 @@ pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor)
         inbox.eq(&actor.inbox),
         icon.eq(&actor.icon),
         local.eq(&actor.local),
-        keys.eq(&actor.keys)
+        keys.eq(&actor.keys),
     );
 
-        diesel::insert_into(actors::table)
+    diesel::insert_into(actors::table)
         .values(new_actor)
         .execute(db_connection)
         .expect("Error creating user");
-    }
+}
 
 /// Deletes an actor base on their actor_uri
 ///
@@ -296,17 +286,15 @@ pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor)
 /// Tests for this function are at `tests/actor.rs`
 /// - delete_local_actor()
 /// - delete_remote_actor()
-pub fn delete(db_connection: &PgConnection, actor: &mut Actor)
-{
+pub fn delete(db_connection: &PgConnection, actor: &mut Actor) {
     diesel::delete(actors.filter(actor_uri.eq(&actor.actor_uri)))
-    .execute(db_connection)
-    .expect("Error deleting user");
+        .execute(db_connection)
+        .expect("Error deleting user");
 }
 
-pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor)
-{
+pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor) {
     diesel::update(actors.filter(actor_uri.eq(&actor.actor_uri)))
-    .set(followers.eq(&actor.followers))
-    .execute(db_connection)
-    .expect("Error updating followers");
+        .set(followers.eq(&actor.followers))
+        .execute(db_connection)
+        .expect("Error updating followers");
 }
