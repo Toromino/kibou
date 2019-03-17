@@ -19,31 +19,15 @@ extern crate uuid;
 
 mod activity;
 mod activitypub;
-mod actor;
-mod database;
-mod env;
+pub mod actor;
+pub mod database;
+pub mod env;
 mod kibou_api;
 mod tests;
 mod web_handler;
 mod well_known;
 
-fn main() {
-    // TODO: Determine the environment Rocket is running in (ROCKET_ENV)
-    // We are currently just assuming a development enviroment
-
-    let mut rocket_config = rocket::config::Config::build(rocket::config::Environment::Development)
-        .address(env::get_value("endpoint.host".to_string()))
-        .port(
-            env::get_value("endpoint.port".to_string())
-                .parse::<u16>()
-                .unwrap(),
-        );
-
-    // Launching Rocket with our own environment config
-    rocket_app(rocket_config.unwrap()).launch();
-}
-
-fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
+pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
     rocket::custom(config)
         .mount(
             "/",
