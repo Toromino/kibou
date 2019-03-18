@@ -19,6 +19,13 @@ use url::Url;
 use uuid::Uuid;
 use web_handler;
 
+/// Creates a new `Accept` activity, inserts it into the database and returns the newly created activity
+///
+/// # Parameters
+///
+/// * `actor`  - &str  | Reference to an ActivityPub actor
+/// * `object` - &str  | Reference to an ActivityStreams object
+///
 pub fn activity_accept(_actor: &str, _object: &str) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
@@ -47,14 +54,14 @@ pub fn activity_accept(_actor: &str, _object: &str) -> Activity {
     new_activity
 }
 
-/// Creates a new activity, inserts it into the database and returns the newly created activity
+/// Creates a new `Create` activity, inserts it into the database and returns the newly created activity
 ///
 /// # Parameters
 ///
-/// * `actor` - String | Reference to an actor by their actor_uri
+/// * `actor`  -            String | Reference to an ActivityPub actor
 /// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
-/// * `to` - Vec<String> | A vector of strings that provides direct receipients
-/// * `cc` - Vec<String> | A vector of strings that provides passive receipients
+/// * `to`     -       Vec<String> | A vector of strings that provides direct receipients
+/// * `cc`     -       Vec<String> | A vector of strings that provides passive receipients
 ///
 pub fn activity_create(
     _actor: &str,
@@ -89,6 +96,13 @@ pub fn activity_create(
     new_activity
 }
 
+/// Creates a new `Follow` activity, inserts it into the database and returns the newly created activity
+///
+/// # Parameters
+///
+/// * `actor`  - &str | Reference to an ActivityPub actor
+/// * `object` - &str | Reference to an ActivityStreams object
+///
 pub fn activity_follow(_actor: &str, _object: &str) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
@@ -117,6 +131,15 @@ pub fn activity_follow(_actor: &str, _object: &str) -> Activity {
     new_activity
 }
 
+/// Creates a new `Like` activity, inserts it into the database and returns the newly created activity
+///
+/// # Parameters
+///
+/// * `actor`  -        &str | Reference to an ActivityPub actor
+/// * `object` -        &str | Reference to an ActivityStreams object
+/// * `to`     - Vec<String> | A vector of strings that provides direct receipients
+/// * `cc`     - Vec<String> | A vector of strings that provides passive receipients
+///
 pub fn activity_like(_actor: &str, _object: &str, _to: Vec<String>, _cc: Vec<String>) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
@@ -145,6 +168,17 @@ pub fn activity_like(_actor: &str, _object: &str, _to: Vec<String>, _cc: Vec<Str
     new_activity
 }
 
+/// Returns a new ActivityStreams object of the type `Note`
+///
+/// # Parameters
+///
+/// * `actor`    -                   &str | Reference to an ActivityPub actor
+/// * `reply_to` -         Option<String> | An optional reference to another ActivityStreams object this object is a reply to
+/// * `content`  -                 String | The content of this note
+/// * `to`       -            Vec<String> | A vector of strings that provides direct receipients
+/// * `cc`       -            Vec<String> | A vector of strings that provides passive receipients
+/// * `tag`      - Vec<serde_json::Value> | A vector of tags to ActivityStreams objects wrapped in JSON
+///
 pub fn note(
     actor: &str,
     reply_to: Option<String>,
@@ -172,9 +206,17 @@ pub fn note(
     }
 }
 
-/// # Tests
+/// Trys to fetch a remote object based on the ActivityStreams id
 ///
-/// [TODO]
+/// # Description
+///
+/// If the URL was successfully parsed, this function will try to fetch the remote object and
+/// determine whether it's a known and valid ActivityStreams object or ActivityPub actor.
+///
+/// # Parameters
+///
+/// * `url` - String | Link to an ActivityStreams object
+///
 pub fn fetch_object_by_id(url: String) {
     let mut parsed_url = String::new();
     let stripped_characters = "\"";
@@ -210,6 +252,12 @@ pub fn fetch_object_by_id(url: String) {
     }
 }
 
+/// Handles incoming requests of the inbox
+///
+/// # Parameters
+///
+/// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
+///
 /// # Tests
 ///
 /// [TODO]
@@ -222,6 +270,12 @@ pub fn prepare_incoming(object: serde_json::Value) {
     }
 }
 
+/// Determines whether an ActivityPub actor exists in the database
+///
+/// # Parameters
+///
+/// * `actor_id` - &str | Reference to an ActivityPub actor
+///
 /// # Tests
 ///
 /// Tests for this function are in `tests/activitypub_controller.rs`
@@ -236,6 +290,12 @@ pub fn actor_exists(actor_id: &str) -> bool {
     }
 }
 
+/// Determines whether an ActivityStreams object exists in the database
+///
+/// # Parameters
+///
+/// * `object_id` - &str | Reference to an ActivityStreams object
+///
 /// # Tests
 ///
 /// Tests for this function are in `tests/activitypub_controller.rs`
@@ -249,7 +309,12 @@ pub fn object_exists(object_id: &str) -> bool {
         Err(_) => false,
     }
 }
-
+/// Resolves every participant of a conversation
+///
+/// # Parameters
+///
+/// * `participants` - Vec<String> | A vector of references to ActivityPub actors
+///
 /// # Tests
 ///
 /// [TODO]
@@ -262,7 +327,11 @@ fn resolve_participants(participants: Vec<String>) {
     }
 }
 
-/// Resolve threads
+/// Resolve all related ActivityStreams objects
+///
+/// # Parameters
+///
+/// * `mentioned_objects` - Vec<String> | A vector of references to ActivityStreams objects
 ///
 /// # Tests
 ///
@@ -275,6 +344,12 @@ fn resolve_thread(mentioned_objects: Vec<String>) {
     }
 }
 
+/// Handles a newly fetched object and wraps it into it's own internal `Create` activity
+///
+/// # Parameters
+///
+/// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
+///
 /// # Tests
 ///
 /// [TODO]
@@ -303,6 +378,12 @@ fn handle_object(object: serde_json::Value) {
     }
 }
 
+/// Handles a newly fetched actor
+///
+/// # Parameters
+///
+/// * `actor` - serde_json::Value | An ActivityPub actor serialized in JSON
+///
 /// # Tests
 ///
 /// [TODO]
@@ -313,6 +394,12 @@ fn handle_actor(actor: serde_json::Value) {
     create_actor(&database, &mut create_internal_actor(serialized_actor));
 }
 
+/// Final handling of incoming ActivityStreams activities which have already been validated
+///
+/// # Parameters
+///
+/// * `activity` - serde_json::Value | An ActivityStreams activity serialized in JSON
+///
 /// # Tests
 ///
 /// [TODO]
