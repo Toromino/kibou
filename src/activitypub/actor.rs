@@ -121,7 +121,14 @@ pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor {
         url: actor.actor_uri.clone(),
         icon: Some(serde_json::json!({"url":actor.icon,
         "type": "Image"})),
-        endpoints: serde_json::json!({"sharedInbox": format!("{}://{}/inbox", env::get_value(String::from("endpoint.base_scheme")), env::get_value(String::from("endpoint.base_domain"))})
+        endpoints: serde_json::json!({
+            "sharedInbox":
+                format!(
+                    "{}://{}/inbox",
+                    env::get_value(String::from("endpoint.base_scheme")),
+                    env::get_value(String::from("endpoint.base_domain"))
+                )
+        }),
     }
 }
 
