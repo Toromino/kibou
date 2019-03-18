@@ -65,7 +65,7 @@ fn is_actor_followed_by() {
     let test_follower_1 = create_remote_test_actor("51df1b86-db1c-458b-9f76-7032275c867b");
     let test_follower_1_uri = test_follower_1.actor_uri.clone();
 
-    add_follow(&test_actor.actor_uri, &test_follower_1_uri);
+    add_follow(&test_actor.actor_uri, &test_follower_1_uri, "");
 
     match actor::is_actor_followed_by(&database, &test_actor, &test_follower_1.actor_uri) {
         Ok(true) => {

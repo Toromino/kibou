@@ -89,7 +89,7 @@ pub fn activity_create(
     new_activity
 }
 
-pub fn activity_follow(_actor: &str, _object: String) -> Activity {
+pub fn activity_follow(_actor: &str, _object: &str) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
         context: vec![
@@ -106,7 +106,7 @@ pub fn activity_follow(_actor: &str, _object: String) -> Activity {
         actor: _actor.to_string(),
         object: serde_json::json!(_object),
         published: Utc::now().to_rfc3339().to_string(),
-        to: vec![_object],
+        to: vec![_object.to_string()],
         cc: vec![],
     };
 
@@ -119,7 +119,7 @@ pub fn activity_follow(_actor: &str, _object: String) -> Activity {
 
 pub fn activity_like(
     _actor: &str,
-    _object: String,
+    _object: &str,
     _to: Vec<String>,
     _cc: Vec<String>,
 ) -> Activity {
@@ -380,7 +380,7 @@ fn handle_activity(activity: serde_json::Value) {
                     ))
                     .unwrap();
 
-                    add_follow(&account.actor_uri, &remote_account.actor_uri);
+                    add_follow(&account.actor_uri, &remote_account.actor_uri, activity["id"].as_str().unwrap());
                     web_handler::federator::enqueue(
                         account,
                         new_activity,
