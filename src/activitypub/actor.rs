@@ -46,7 +46,7 @@ pub struct Outbox {
     pub orderedItems: Vec<Activity>,
 }
 
-pub fn add_follow(account: &str, source: &str) {
+pub fn add_follow(account: &str, source: &str, activity_id: &str) {
     let database = database::establish_connection();
     let mut actor = actor::get_actor_by_uri(&database, &account).unwrap();
     let followers: serde_json::Value = actor.followers["activitypub"].clone();
@@ -55,7 +55,9 @@ pub fn add_follow(account: &str, source: &str) {
 
     if follow_data.is_ok() {
         let mut follow_data: Vec<serde_json::Value> = follow_data.unwrap();
-        let new_follow_data = serde_json::json!({"href" : source, "follow_date": Utc::now().to_rfc3339().to_string()});
+        let new_follow_data = serde_json::json!({"href" : source,
+        "follow_date": Utc::now().to_rfc3339().to_string(),
+        "activity_id": activity_id});
         follow_data.push(new_follow_data);
 
         actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();

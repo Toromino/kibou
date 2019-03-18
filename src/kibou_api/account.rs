@@ -1,5 +1,7 @@
+use activitypub::actor::add_follow;
 use activitypub::controller::activity_follow;
 use actor::get_actor_by_uri;
+use actor::is_actor_followed_by;
 use actor::Actor;
 use database;
 use web_handler::federator;
@@ -10,14 +12,17 @@ pub fn follow(actor: String, object: String) {
 
     match get_actor_by_uri(&database, &object) {
         Ok(followee) => {
-            let activitypub_activity_follow = activity_follow(&actor, object);
+            if !is_actor_followed_by(&database, &followee, &actor).unwrap() == true {
+                let activitypub_activity_follow = activity_follow(&actor, &object);
+                add_follow(&object, &actor, &activitypub_activity_follow.id);
 
-            if !followee.local {
-                federator::enqueue(
-                    serialized_actor,
-                    serde_json::json!(&activitypub_activity_follow),
-                    vec![followee.inbox.unwrap()],
-                );
+                if !followee.local {
+                    federator::enqueue(
+                        serialized_actor,
+                        serde_json::json!(&activitypub_activity_follow),
+                        vec![followee.inbox.unwrap()],
+                    );
+                }
             }
         }
         Err(_) => (),

@@ -74,7 +74,7 @@ fn add_follow() {
     let test_follower_1 = create_remote_test_actor("0fdba399-d603-433c-934b-e774b8262698");
     let test_follower_1_uri = test_follower_1.actor_uri.clone();
 
-    actor::add_follow(&test_actor.actor_uri, &test_follower_1_uri);
+    actor::add_follow(&test_actor.actor_uri, &test_follower_1_uri, "");
     let test_actor = internal_actor::get_actor_by_uri(&database, &test_actor.actor_uri).unwrap();
 
     let activitypub_followers: serde_json::Value = test_actor.followers["activitypub"].clone();
@@ -93,7 +93,7 @@ fn remove_follow() {
     let test_follower_1 = create_remote_test_actor("bdecd8a8-8aa6-4d21-9e44-c0e9d258d471");
     let test_follower_1_uri = test_follower_1.actor_uri.clone();
 
-    actor::add_follow(&test_actor.actor_uri, &test_follower_1_uri);
+    actor::add_follow(&test_actor.actor_uri, &test_follower_1_uri, "");
     actor::remove_follow(&test_actor.actor_uri, &test_follower_1_uri);
     let test_actor = internal_actor::get_actor_by_uri(&database, &test_actor.actor_uri).unwrap();
 
