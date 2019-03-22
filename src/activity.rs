@@ -6,6 +6,7 @@ use diesel::query_dsl::QueryDsl;
 use diesel::query_dsl::RunQueryDsl;
 use diesel::sql_query;
 use diesel::ExpressionMethods;
+use env;
 use serde_json;
 
 pub struct Activity {
@@ -51,11 +52,6 @@ pub fn get_ap_activity_by_id(
     }
 }
 
-/// # Note
-///
-/// [TODO]
-/// Originally I did not want any protocol-specific functions in this file, so it might be
-/// reasonable to move ActivityPub-specfic database querys into their own module
 pub fn get_ap_object_by_id(
     db_connection: &PgConnection,
     object_id: &str,
@@ -114,7 +110,7 @@ pub fn count_ap_object_replies_by_id(
     .clone()
     .load::<QueryActivity>(db_connection)
     {
-        Ok(activity) => Ok(activity.len()),
+        Ok(activity_arr) => Ok(activity_arr.len()),
         Err(e) => Err(e),
     }
 }
@@ -130,9 +126,27 @@ pub fn count_ap_object_reactions_by_id(
          .clone()
          .load::<QueryActivity>(db_connection)
      {
-         Ok(activity) => Ok(activity.len()),
+         Ok(activity_arr) => Ok(activity_arr.len()),
          Err(e) => Err(e),
      }
+}
+
+pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT * \
+         FROM activities \
+         WHERE data->>'type' = 'Create'\
+         AND data->'object'->>'type' = 'Note'\
+         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%';",
+        base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+        base_domain = env::get_value(String::from("endpoint.base_domain"))
+    ))
+    .clone()
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
 }
 
 fn serialize_activity(sql_activity: QueryActivity) -> Activity {
