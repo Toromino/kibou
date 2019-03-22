@@ -11,15 +11,15 @@ pub fn nodeinfo() -> JsonValue {
            "links": [
            {
                "rel": "http://nodeinfo.diaspora.software/ns/schema/2.0",
-               "href": format!("{}://{}/nodeinfo/2.0.json",
-               env::get_value(String::from("endpoint.base_scheme")),
-               env::get_value(String::from("endpoint.base_domain")))
+               "href": format!("{base_scheme}://{base_domain}/nodeinfo/2.0.json",
+               base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+               base_domain = env::get_value(String::from("endpoint.base_domain")))
            },
            {
                "rel": "http://nodeinfo.diaspora.software/ns/schema/2.1",
-               "href": format!("{}://{}/nodeinfo/2.1.json",
-               env::get_value(String::from("endpoint.base_scheme")),
-               env::get_value(String::from("endpoint.base_domain")))
+               "href": format!("{base_scheme}://{base_domain}/nodeinfo/2.1.json",
+               base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+               base_domain = env::get_value(String::from("endpoint.base_domain")))
            }]
     })
 }
@@ -31,7 +31,8 @@ pub fn nodeinfo_v2() -> JsonValue {
     json!({
         "version": "2.0",
         "software": {
-            "version": format!("{}-testing",env!("CARGO_PKG_VERSION")),
+            "version": format!("{version}-testing",
+                version = env!("CARGO_PKG_VERSION")),
             "name": env!("CARGO_PKG_NAME")
         },
         "protocols": [
@@ -70,7 +71,8 @@ pub fn nodeinfo_v2_1() -> JsonValue {
     json!({
         "version": "2.1",
         "software": {
-            "version": format!("{}-testing",env!("CARGO_PKG_VERSION")),
+            "version": format!("{version}-testing",
+                version = env!("CARGO_PKG_VERSION")),
             "name": env!("CARGO_PKG_NAME"),
             "repository": "https://git.cybre.club/kibouproject/kibou"
         },
