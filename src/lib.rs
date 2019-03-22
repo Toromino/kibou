@@ -41,6 +41,7 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
         .mount(
             "/",
             routes![
+                well_known::nodeinfo::nodeinfo,
                 well_known::nodeinfo::nodeinfo_v2,
                 well_known::nodeinfo::nodeinfo_v2_1,
                 well_known::webfinger::webfinger
