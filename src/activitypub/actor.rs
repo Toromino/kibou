@@ -16,7 +16,7 @@ pub struct Actor {
     // - https://www.w3.org/TR/activitypub/#actor-objects
     // - https://www.w3.org/TR/activitystreams-core/#actors
     #[serde(rename = "@context")]
-    pub context: Vec<serde_json::Value>,
+    pub context: Option<Vec<serde_json::Value>>,
     #[serde(rename = "type")]
     pub _type: String,
     pub id: String,
@@ -100,10 +100,10 @@ pub fn get_json_by_preferred_username(preferred_username: String) -> JsonValue {
 
 pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor {
     Actor {
-        context: vec![
+        context: Some(vec![
             serde_json::json!("https://www.w3.org/ns/activitystreams"),
             serde_json::json!("https://w3id.org/security/v1"),
-        ],
+        ]),
         _type: String::from("Person"),
         id: actor.actor_uri.clone(),
         summary: actor.summary.clone(),

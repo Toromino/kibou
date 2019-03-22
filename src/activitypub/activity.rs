@@ -14,7 +14,7 @@ pub struct Activity {
     // Properties according to
     // - https://www.w3.org/TR/activitystreams-core/#activities
     #[serde(rename = "@context")]
-    pub context: Vec<String>,
+    pub context: Option<Vec<String>>,
     #[serde(rename = "type")]
     pub _type: String,
     pub id: String,
@@ -38,7 +38,7 @@ pub struct Object {
     pub content: String,
     pub to: Vec<String>,
     pub cc: Vec<String>,
-    pub tag: Vec<serde_json::Value>,
+    pub tag: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Serialize, Deserialize)]
