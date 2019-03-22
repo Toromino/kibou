@@ -32,6 +32,7 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
         .mount(
             "/",
             routes![
+                activitypub::routes::activity,
                 activitypub::routes::actor,
                 activitypub::routes::actor_inbox,
                 activitypub::routes::object,
