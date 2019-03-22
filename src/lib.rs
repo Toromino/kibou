@@ -38,5 +38,12 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
                 activitypub::routes::inbox
             ],
         )
-        .mount("/", routes![well_known::webfinger::webfinger])
+        .mount(
+            "/",
+            routes![
+                well_known::nodeinfo::nodeinfo_v2,
+                well_known::nodeinfo::nodeinfo_v2_1,
+                well_known::webfinger::webfinger
+            ],
+        )
 }

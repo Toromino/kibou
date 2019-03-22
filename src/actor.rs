@@ -237,6 +237,16 @@ pub fn get_local_actor_by_preferred_username(
     }
 }
 
+pub fn count_local_actors(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
+    match actors
+        .filter(local.eq(true))
+        .load::<QueryActor>(db_connection)
+    {
+        Ok(actor_arr) => Ok(actor_arr.len()),
+        Err(e) => Err(e),
+    }
+}
+
 /// Creates a new actor
 ///
 /// # Parameters
