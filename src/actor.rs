@@ -1,3 +1,5 @@
+use bcrypt::hash;
+use bcrypt::DEFAULT_COST;
 use database::models::QueryActor;
 use database::schema::actors;
 use database::schema::actors::dsl::*;
@@ -263,6 +265,16 @@ pub fn count_local_actors(db_connection: &PgConnection) -> Result<usize, diesel:
 pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor) {
     if actor.local && actor.keys == serde_json::json!({}) {
         actor.update_local_keys();
+    }
+
+    if actor.local {
+        actor.password = Some(
+            hash(
+                actor.password.to_owned().unwrap().into_bytes(),
+                DEFAULT_COST,
+            )
+            .unwrap(),
+        );
     }
 
     let new_actor = (

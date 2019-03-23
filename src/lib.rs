@@ -2,6 +2,7 @@
 #![feature(custom_attribute)]
 
 extern crate base64;
+extern crate bcrypt;
 extern crate chrono;
 #[macro_use]
 extern crate diesel;
