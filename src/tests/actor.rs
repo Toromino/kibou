@@ -1,6 +1,7 @@
 use activitypub::actor::add_follow;
 use actor;
 use base64;
+use bcrypt::verify;
 use database;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
@@ -274,6 +275,13 @@ fn create_local_actor() {
             assert_eq!(db_actor.preferred_username, preferred_username.clone());
             assert_eq!(db_actor.summary, summary);
             assert_eq!(db_actor.local, local);
+            assert!(
+                true,
+                verify(
+                    String::from("Cy72MZfbfvDk7vnj").into_bytes(),
+                    &db_actor.password.unwrap()
+                )
+            );
         }
         Err(_) => {
             delete_test_actor(test_actor);

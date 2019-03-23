@@ -8,6 +8,7 @@ default-run = "kibou_server"
 
 [dependencies]
 base64 = "0.10.1"
+bcrypt = "0.3"
 chrono = "0.4"
 config = "0.9.2"
 diesel = { version = "1.0.0", features = ["chrono", "postgres", "serde_json"] }
