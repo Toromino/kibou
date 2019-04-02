@@ -6,7 +6,6 @@ use getopts::Options;
 use kibou::actor;
 use kibou::database;
 use kibou::env;
-use std::env::args;
 
 fn main() {
     let database = database::establish_connection();

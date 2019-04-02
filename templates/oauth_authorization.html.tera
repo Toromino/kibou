@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<div id="wrapper">
+    <div class="header">OAuth authorization</div>
+    {% if not error_context == "" %}
+    <div id="error-message">An error occured: {{error_context}}</div>
+    {% endif %}
+    <div id="form">
+        <h2>User authorization</h2>
+        <form method="post">
+            <label>Username</label>
+            <br>
+            <input type="text" name="username">
+            <br>
+            <label>Password</label>
+            <br>
+            <input type="password" name="password">
+            <br >
+            <input type="submit">
+            <br />
+            <a href="#">Register?</a>
+            {% if styling == "true" %}
+            <a href="?styling=false" style="float: right;">Disable styling</a>
+            {% else %}
+            <a href="?styling=true">Enable styling</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+</body>
+{% if styling == "true" %}
+<style>
+body {
+	background: #181d23;
+	color: white;
+	font-family: Arial, Helvetica, sans-serif;
+	margin: 0;
+}
+
+.header {
+	background: #1d252c;
+	font-size: 16px;
+	border-color: #6fb3ff;
+	border-top-style: solid;
+	border-width: 3px;
+	padding-top: 10px;
+	padding-left: 10px;
+	height: 25px;
+}
+
+#error-message {
+	color: #000000;
+	background: #ef6868;
+	border-color: #ff0000;
+	border-bottom-style: dashed;
+	border-width: 1px;
+}
+
+#wrapper {
+	background: #252f38;
+	margin: auto;
+	margin-top: 20px;
+	width: 500px;
+}
+
+#form {
+	padding: 8px 8px 8px 8px;
+}
+
+#form a {
+	color: #6fb3ff;
+	text-decoration: none;
+	font-size: 15px;
+}
+
+#form input {
+	background: #191b21;
+	color: #41505e;
+	border-width: 2px;
+	border-style: none;
+	height: 24px;
+	width: 60%;
+	margin-bottom: 10px;
+}
+
+#form input[type="submit"] {
+	background: #1d252c;
+	color: #FFFFFF;
+	font-size: 16px;
+	border-color: #6fb3ff;
+	border-style: none;
+	border-bottom-style: groove;
+	border-radius: 0px;
+	height: 30px;
+	width: 100px;
+}
+</style>
+{% endif %}
+</html>

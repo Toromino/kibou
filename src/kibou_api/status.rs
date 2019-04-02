@@ -1,3 +1,4 @@
+use activity::get_activity_by_id;
 use activitypub::activity::Tag;
 use activitypub::controller::activity_create;
 use activitypub::controller::note;
@@ -8,7 +9,7 @@ use database;
 use regex::Regex;
 use web_handler::federator;
 
-pub fn build(actor: String, mut content: String, visiblity: &str, in_reply_to: Option<String>) {
+pub fn build(actor: String, mut content: String, visibility: &str, in_reply_to: Option<String>) {
     let database = database::establish_connection();
     let serialized_actor: Actor = get_actor_by_uri(&database, &actor).unwrap();
 
@@ -23,7 +24,7 @@ pub fn build(actor: String, mut content: String, visiblity: &str, in_reply_to: O
     tags.extend(parsed_mentions.2);
     content = parsed_mentions.3;
 
-    match visiblity {
+    match visibility {
         "public" => {
             direct_receipients.push("https://www.w3.org/ns/activitystreams#Public".to_string());
             receipients.push(format!("{}/followers", actor));
@@ -43,7 +44,7 @@ pub fn build(actor: String, mut content: String, visiblity: &str, in_reply_to: O
 
     let activitypub_note = note(
         &actor,
-        in_reply_to,
+        handle_in_reply_to(in_reply_to),
         content,
         direct_receipients.clone(),
         receipients.clone(),
@@ -60,6 +61,19 @@ pub fn build(actor: String, mut content: String, visiblity: &str, in_reply_to: O
         serde_json::json!(&activitypub_activity_create),
         inboxes,
     );
+}
+
+fn handle_in_reply_to(local_id: Option<String>) -> Option<String> {
+    let database = database::establish_connection();
+
+    if local_id.is_some() {
+        match get_activity_by_id(&database, local_id.unwrap().parse::<i64>().unwrap()) {
+            Ok(activity) => Some(activity.data["object"]["id"].as_str().unwrap().to_string()),
+            Err(_) => None,
+        }
+    } else {
+        return None;
+    }
 }
 
 fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json::Value>, String) {

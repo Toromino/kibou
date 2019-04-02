@@ -12,7 +12,7 @@ pub fn follow(actor: String, object: String) {
 
     match get_actor_by_uri(&database, &object) {
         Ok(followee) => {
-            if !is_actor_followed_by(&database, &followee, &actor).unwrap() == true {
+            if !is_actor_followed_by(&database, &followee, &actor).unwrap() {
                 let activitypub_activity_follow = activity_follow(&actor, &object);
                 add_follow(&object, &actor, &activitypub_activity_follow.id);
 

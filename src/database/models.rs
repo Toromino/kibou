@@ -37,3 +37,39 @@ pub struct QueryActor {
     pub local: bool,
     pub followers: serde_json::Value,
 }
+
+#[derive(Queryable, Debug)]
+pub struct QueryOAuthApplication {
+    pub id: i64,
+    pub client_name: Option<String>,
+    pub client_id: String,
+    pub client_secret: String,
+    pub redirect_uris: String,
+    pub scopes: String,
+    pub website: Option<String>,
+    pub created: NaiveDateTime,
+    pub modified: NaiveDateTime,
+}
+
+#[derive(Queryable, Debug)]
+pub struct QueryOAuthAuthorization {
+    pub id: i64,
+    pub application: i64,
+    pub actor: String,
+    pub code: String,
+    pub created: NaiveDateTime,
+    pub modified: NaiveDateTime,
+    pub valid_until: NaiveDateTime,
+}
+
+#[derive(Queryable, Debug)]
+pub struct QueryOauthToken {
+    pub id: i64,
+    pub application: i64,
+    pub actor: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub created: NaiveDateTime,
+    pub modified: NaiveDateTime,
+    pub valid_until: NaiveDateTime,
+}
