@@ -15,6 +15,56 @@ pub struct Activity {
     pub actor: String,
 }
 
+pub fn count_ap_object_replies_by_id(
+    db_connection: &PgConnection,
+    object_id: &str,
+) -> Result<usize, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT * FROM activities WHERE data->'object'->>'inReplyTo' = '{}';",
+        object_id
+    ))
+    .clone()
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn count_ap_object_reactions_by_id(
+    db_connection: &PgConnection,
+    object_id: &str,
+    reaction: &str,
+) -> Result<usize, diesel::result::Error> {
+    match sql_query(format!("SELECT * FROM activities WHERE data->>'type' = '{reaction_type}' AND data->>'object'= '{id}';",
+                            reaction_type = reaction,
+                            id = object_id))
+        .clone()
+        .load::<QueryActivity>(db_connection)
+        {
+            Ok(activity_arr) => Ok(activity_arr.len()),
+            Err(e) => Err(e),
+        }
+}
+
+pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT * \
+         FROM activities \
+         WHERE data->>'type' = 'Create'\
+         AND data->'object'->>'type' = 'Note'\
+         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%';",
+        base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+        base_domain = env::get_value(String::from("endpoint.base_domain"))
+    ))
+    .clone()
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
+}
+
 pub fn get_activity_by_id(
     db_connection: &PgConnection,
     activity_id: i64,
@@ -99,57 +149,7 @@ pub fn get_ap_object_replies_by_id(
     }
 }
 
-pub fn count_ap_object_replies_by_id(
-    db_connection: &PgConnection,
-    object_id: &str,
-) -> Result<usize, diesel::result::Error> {
-    match sql_query(format!(
-        "SELECT * FROM activities WHERE data->'object'->>'inReplyTo' = '{}';",
-        object_id
-    ))
-    .clone()
-    .load::<QueryActivity>(db_connection)
-    {
-        Ok(activity_arr) => Ok(activity_arr.len()),
-        Err(e) => Err(e),
-    }
-}
-
-pub fn count_ap_object_reactions_by_id(
-    db_connection: &PgConnection,
-    object_id: &str,
-    reaction: &str,
-) -> Result<usize, diesel::result::Error> {
-    match sql_query(format!("SELECT * FROM activities WHERE data->>'type' = '{reaction_type}' AND data->>'object'= '{id}';",
-    reaction_type = reaction,
-    id = object_id))
-         .clone()
-         .load::<QueryActivity>(db_connection)
-     {
-         Ok(activity_arr) => Ok(activity_arr.len()),
-         Err(e) => Err(e),
-     }
-}
-
-pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
-    match sql_query(format!(
-        "SELECT * \
-         FROM activities \
-         WHERE data->>'type' = 'Create'\
-         AND data->'object'->>'type' = 'Note'\
-         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%';",
-        base_scheme = env::get_value(String::from("endpoint.base_scheme")),
-        base_domain = env::get_value(String::from("endpoint.base_domain"))
-    ))
-    .clone()
-    .load::<QueryActivity>(db_connection)
-    {
-        Ok(activity_arr) => Ok(activity_arr.len()),
-        Err(e) => Err(e),
-    }
-}
-
-fn serialize_activity(sql_activity: QueryActivity) -> Activity {
+pub fn serialize_activity(sql_activity: QueryActivity) -> Activity {
     Activity {
         id: sql_activity.id,
         data: sql_activity.data,
@@ -157,7 +157,7 @@ fn serialize_activity(sql_activity: QueryActivity) -> Activity {
     }
 }
 
-fn deserialize_activity(activity: &Activity) -> InsertActivity {
+pub fn deserialize_activity(activity: &Activity) -> InsertActivity {
     InsertActivity {
         data: &activity.data,
         actor_uri: &activity.actor,

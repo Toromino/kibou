@@ -163,5 +163,6 @@ pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor {
         local: false,
         keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]}),
         followers: serde_json::json!({"activitypub": []}),
+        created: Utc::now().naive_utc(),
     }
 }

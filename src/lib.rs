@@ -24,7 +24,10 @@ pub mod actor;
 pub mod database;
 pub mod env;
 mod kibou_api;
+mod mastodon_api;
+mod oauth;
 mod tests;
+mod timeline;
 mod web_handler;
 mod well_known;
 
@@ -43,10 +46,38 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
         .mount(
             "/",
             routes![
+                mastodon_api::routes::account,
+                mastodon_api::routes::account_verify_credentials,
+                mastodon_api::routes::application,
+                mastodon_api::routes::home_timeline,
+                mastodon_api::routes::instance,
+                mastodon_api::routes::status,
+                mastodon_api::routes::status_post,
+                mastodon_api::routes::public_timeline,
+                mastodon_api::routes::options_account,
+                mastodon_api::routes::options_account_verify_credentials,
+                mastodon_api::routes::options_home_timeline,
+                mastodon_api::routes::options_instance,
+                mastodon_api::routes::options_public_timeline,
+                mastodon_api::routes::options_status
+            ],
+        )
+        .mount(
+            "/",
+            routes![
+                oauth::routes::authorize,
+                oauth::routes::authorize_result,
+                oauth::routes::token
+            ],
+        )
+        .mount(
+            "/",
+            routes![
                 well_known::nodeinfo::nodeinfo,
                 well_known::nodeinfo::nodeinfo_v2,
                 well_known::nodeinfo::nodeinfo_v2_1,
                 well_known::webfinger::webfinger
             ],
         )
+        .attach(rocket_contrib::templates::Template::fairing())
 }

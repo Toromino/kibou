@@ -1,5 +1,5 @@
-use bcrypt::hash;
-use bcrypt::DEFAULT_COST;
+use bcrypt;
+use chrono::NaiveDateTime;
 use database::models::QueryActor;
 use database::schema::actors;
 use database::schema::actors::dsl::*;
@@ -29,6 +29,7 @@ pub struct Actor {
     pub icon: Option<String>,
     pub local: bool,
     pub keys: serde_json::Value,
+    pub created: NaiveDateTime,
 }
 
 impl Actor {
@@ -127,6 +128,25 @@ fn serialize_actor(sql_actor: QueryActor) -> Actor {
         keys: sql_actor.keys,
         local: sql_actor.local,
         followers: sql_actor.followers,
+        created: sql_actor.created,
+    }
+}
+
+pub fn authorize(
+    db_connection: &PgConnection,
+    _username: &str,
+    _password: String,
+) -> Result<bool, diesel::result::Error> {
+    match actors
+        .filter(username.eq(_username))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(
+            bcrypt::verify(_password.into_bytes(), &actor.password.unwrap())
+                .unwrap_or_else(|_| false),
+        ),
+        Err(e) => Err(e),
     }
 }
 
@@ -212,6 +232,33 @@ pub fn get_actor_by_uri(
     }
 }
 
+pub fn get_actor_followees(
+    db_connection: &PgConnection,
+    _actor_uri: &str,
+) -> Result<Vec<String>, diesel::result::Error> {
+    match sql_query(format!(
+        "WITH actor \
+        AS ( SELECT id, email, password, actor_uri, username, preferred_username, summary, inbox, icon, keys, created, modified, local, jsonb_array_elements(followers->'activitypub') \
+        AS followers FROM actors) \
+        SELECT * FROM actor \
+        WHERE (followers->>'href') = '{uri}';",
+        uri = _actor_uri
+    ))
+        .load::<QueryActor>(db_connection)
+        {
+            Ok(actor_vec) => {
+                let mut followings: Vec<String> = vec![];
+
+                for actor in actor_vec {
+                    followings.push(actor.actor_uri);
+                }
+
+                return Ok(followings);
+            },
+            Err(e) => Err(e),
+        }
+}
+
 /// Runs a database query based on a local actor's preferred_username, returns either
 /// an actor::Actor or a diesel::result::Error
 ///
@@ -269,9 +316,9 @@ pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor) {
 
     if actor.local {
         actor.password = Some(
-            hash(
+            bcrypt::hash(
                 actor.password.to_owned().unwrap().into_bytes(),
-                DEFAULT_COST,
+                bcrypt::DEFAULT_COST,
             )
             .unwrap(),
         );

@@ -1,4 +1,5 @@
 use actor;
+use chrono::Utc;
 use database;
 
 pub fn create_local_test_actor(username: &str) -> actor::Actor {
@@ -16,6 +17,7 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor {
         keys: serde_json::json!({}),
         local: true,
         followers: serde_json::json!({"activitypub": []}),
+        created: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut test_actor);
@@ -45,6 +47,7 @@ pub fn create_remote_test_actor(username: &str) -> actor::Actor {
         keys: serde_json::json!({}),
         local: false,
         followers: serde_json::json!({"activitypub": []}),
+        created: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut test_actor);
