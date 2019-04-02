@@ -59,6 +59,7 @@ pub fn nodeinfo_v2() -> JsonValue {
 
         },
         "features": [
+            "mastodon_api",
             "webfinger"
         ]
     })
@@ -100,6 +101,7 @@ pub fn nodeinfo_v2_1() -> JsonValue {
 
         },
         "features": [
+            "mastodon_api",
             "webfinger"
         ]
     })

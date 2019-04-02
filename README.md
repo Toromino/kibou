@@ -6,6 +6,8 @@ written in Rust, utilizes Rocket as it's web framework and Diesel as it's databa
 
 The project's objective is to provide a highly customizable multi-protocol social networking server. Currently supported is the commonly used [ActivtyPub](https://activitypub.rocks) protocol.
 
+Furthermore, Kibou implements [Mastodon's REST API](https://docs.joinmastodon.org/api). This means that all applications for [Mastodon](https://joinmastodon.org) should also work with Kibou.
+
 **Notice**: Kibou is *not* considered stable yet. This project's development is still
 work-in-progress. Using the development branch is not recommended for production usage.
 
