@@ -4,7 +4,7 @@
 Kibou is a lightweight federated social networking server based on open protocols. It is
 written in Rust, utilizes Rocket as it's web framework and Diesel as it's database driver.
 
-The project's objective is to provide a highly customizable multi-protocol social networking server. Currently supported is the commonly used [ActivtyPub](https://activitypub.rocks) protocol.
+The project's objective is to provide a highly customizable multi-protocol social networking server. Currently supported is the commonly used [ActivityPub](https://activitypub.rocks) protocol.
 
 Furthermore, Kibou implements [Mastodon's REST API](https://docs.joinmastodon.org/api). This means that all applications for [Mastodon](https://joinmastodon.org) should also work with Kibou.
 

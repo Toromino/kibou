@@ -21,7 +21,7 @@ pub fn get_home_timeline(
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         AS activities_home_timeline WHERE \
+         AS activities_ap_home_timeline WHERE \
          (actor_uri = ANY (ARRAY['{followees}']::varchar(255)[]) OR \
          actor_uri = '{actor_uri}') \
          {id} \
