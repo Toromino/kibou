@@ -21,9 +21,7 @@ pub fn get_home_timeline(
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         WHERE \
-         (data->>'type' = 'Create' OR \
-         data->>'type' = 'Announce') AND \
+         AS activities_home_timeline WHERE \
          (actor_uri = ANY (ARRAY['{followees}']::varchar(255)[]) OR \
          actor_uri = '{actor_uri}') \
          {id} \
@@ -35,7 +33,6 @@ pub fn get_home_timeline(
         id = get_id_order_query(max_id, since_id, min_id),
         limit = query_limit
     ))
-    .clone()
     .load::<QueryActivity>(db_connection)
     {
         Ok(activity) => {
@@ -62,7 +59,7 @@ pub fn get_public_timeline(
 ) -> Result<Vec<Activity>, diesel::result::Error> {
     let query_local = if local {
         format!(
-            "AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%'",
+            "WHERE data->>'actor' LIKE '{base_scheme}://{base_domain}/%'",
             base_scheme = env::get_value(String::from("endpoint.base_scheme")),
             base_domain = env::get_value(String::from("endpoint.base_domain"))
         )
@@ -75,7 +72,7 @@ pub fn get_public_timeline(
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         WHERE data->>'type' = 'Create'\
+         AS activities_ap_public \
          {local} \
          {id} \
          LIMIT {limit};",
@@ -83,7 +80,6 @@ pub fn get_public_timeline(
         id = get_id_order_query(max_id, since_id, min_id),
         limit = query_limit
     ))
-    .clone()
     .load::<QueryActivity>(db_connection)
     {
         Ok(activity) => {

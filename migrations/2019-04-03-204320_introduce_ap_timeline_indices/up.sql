@@ -1,0 +1,2 @@
+CREATE INDEX activities_ap_home_timeline ON activities ((data->>'type' = 'Create' OR data->>'type' = 'Announce'));
+CREATE INDEX activities_ap_public ON activities ((data->>'type' = 'Create' AND (data->'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public'));
