@@ -1,13 +1,20 @@
 use activitypub::controller::actor_exists;
+use actor;
+use database;
 use regex::Regex;
 use url::Url;
 use web_handler;
+use web_handler::http_signatures::HTTPSignature;
 
 // *Notes*
 //
 // [TODO]
 // Verification of HTTP signatures, therefore a validation of IDs is not needed
-pub fn validate_activity(activity: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+pub fn validate_activity(
+    activity: serde_json::Value,
+    signature: HTTPSignature,
+) -> Result<serde_json::Value, &'static str> {
+    let database = database::establish_connection();
     let known_type = if activity.get("type").is_some() {
         match activity["type"].as_str() {
             Some("Create") => true,
@@ -40,14 +47,28 @@ pub fn validate_activity(activity: serde_json::Value) -> Result<serde_json::Valu
         false
     };
 
-    if known_type && valid_actor {
+    let valid_signature = web_handler::http_signatures::validate(
+        &mut actor::get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap(),
+        signature,
+    );
+
+    let valid_object = if activity["type"].as_str() == Some("Create") {
+        validate_object(activity["object"].clone(), valid_signature).is_ok()
+    } else {
+        true
+    };
+
+    if known_type && valid_actor && valid_signature && valid_object {
         Ok(activity)
     } else {
         Err("Activity could not be validated")
     }
 }
 
-pub fn validate_object(object: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+pub fn validate_object(
+    object: serde_json::Value,
+    valid_signature: bool,
+) -> Result<serde_json::Value, &'static str> {
     let known_type = if object.get("type").is_some() {
         match object["type"].as_str() {
             Some("Note") => true,
@@ -58,18 +79,17 @@ pub fn validate_object(object: serde_json::Value) -> Result<serde_json::Value, &
         false
     };
 
-    // *Notes*
-    //
-    // [TODO]
-    // Verification of IDs should be disabled if HTTP signatures are valid
-    // The current behaviour marks non-public objects as invalid
-    let valid_id = if object.get("id").is_some() {
-        match parse_url(object["id"].as_str().unwrap()) {
-            Ok(url) => valid_self_reference(&object, &url),
-            Err(_) => false,
-        }
+    let valid_id = if valid_signature {
+        true
     } else {
-        false
+        if object.get("id").is_some() {
+            match parse_url(object["id"].as_str().unwrap()) {
+                Ok(url) => valid_self_reference(&object, &url),
+                Err(_) => false,
+            }
+        } else {
+            false
+        }
     };
 
     let valid_actor = if object.get("attributedTo").is_some() {

@@ -1,6 +1,7 @@
 use activitypub::activity as ap_activity;
 use activitypub::actor as ap_actor;
 use activitypub::controller;
+use activitypub::HTTPSignature;
 use rocket_contrib::json::JsonValue;
 use serde_json;
 
@@ -15,16 +16,18 @@ pub fn actor(handle: String) -> JsonValue {
 }
 
 #[post("/actors/<id>/inbox", data = "<activity>")]
-pub fn actor_inbox(id: String, activity: String) {
+pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
+        _signature,
     );
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(activity: String) {
+pub fn inbox(activity: String, _signature: HTTPSignature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
+        _signature,
     );
 }
 
