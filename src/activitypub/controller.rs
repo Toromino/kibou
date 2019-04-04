@@ -18,6 +18,7 @@ use env;
 use url::Url;
 use uuid::Uuid;
 use web_handler;
+use web_handler::http_signatures::HTTPSignature;
 
 /// Creates a new `Accept` activity, inserts it into the database and returns the newly created activity
 ///
@@ -233,7 +234,7 @@ pub fn fetch_object_by_id(url: String) {
                     Ok(object) => {
                         let parsed_object: serde_json::Value =
                             serde_json::from_str(&object).unwrap();
-                        if validator::validate_object(parsed_object.clone()).is_ok() {
+                        if validator::validate_object(parsed_object.clone(), false).is_ok() {
                             println!("Successfully fetched object: {}", &url);
                             handle_object(parsed_object.clone());
                         } else if validator::validate_actor(parsed_object.clone()).is_ok() {
@@ -256,17 +257,16 @@ pub fn fetch_object_by_id(url: String) {
 ///
 /// # Parameters
 ///
-/// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
+/// * `activity`  - serde_json::Value           | An ActivityStreams activity serialized in JSON
+/// * `signature` - activitiypub::HTTPSignature | The activity's signature, signed by an actor
 ///
 /// # Tests
 ///
 /// [TODO]
-pub fn prepare_incoming(object: serde_json::Value) {
-    let object_string = &object.to_string();
-
-    match validator::validate_activity(object) {
+pub fn prepare_incoming(activity: serde_json::Value, signature: HTTPSignature) {
+    match validator::validate_activity(activity.clone(), signature) {
         Ok(sanitized_activity) => handle_activity(sanitized_activity),
-        Err(_) => eprintln!("Validation failed for activity: {}", object_string),
+        Err(_) => eprintln!("Validation failed for activity: {:?}", activity),
     }
 }
 
