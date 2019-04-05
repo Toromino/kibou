@@ -53,8 +53,7 @@ pub fn validate(actor: &mut Actor, sig_headers: HTTPSignature) -> bool {
 
     let headers = &header_tags["headers"];
 
-    let inner_signature =
-        &base64::decode(&header_tags["signature"].clone().into_bytes()).unwrap();
+    let inner_signature = &base64::decode(&header_tags["signature"].clone().into_bytes()).unwrap();
     let mut new_signature: Vec<String> = vec![];
 
     if headers.contains("(request-target)") {
@@ -78,7 +77,9 @@ pub fn validate(actor: &mut Actor, sig_headers: HTTPSignature) -> bool {
     }
 
     let pem_decoded = pem::parse(actor.get_public_key()).unwrap();
-    let pkey = PKey::from_rsa(openssl::rsa::Rsa::public_key_from_der(&pem_decoded.contents).unwrap()).unwrap();
+    let pkey =
+        PKey::from_rsa(openssl::rsa::Rsa::public_key_from_der(&pem_decoded.contents).unwrap())
+            .unwrap();
     let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
     verifier
         .update(&new_signature.join("\n").into_bytes())

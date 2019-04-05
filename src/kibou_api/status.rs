@@ -6,6 +6,7 @@ use actor::get_actor_by_acct;
 use actor::get_actor_by_uri;
 use actor::Actor;
 use database;
+use diesel::PgConnection;
 use regex::Regex;
 use web_handler::federator;
 
@@ -28,19 +29,33 @@ pub fn build(actor: String, mut content: String, visibility: &str, in_reply_to: 
         "public" => {
             direct_receipients.push("https://www.w3.org/ns/activitystreams#Public".to_string());
             receipients.push(format!("{}/followers", actor));
+            inboxes.extend(handle_follower_inboxes(
+                &database,
+                &serialized_actor.followers,
+            ));
         }
 
         "unlisted" => {
             direct_receipients.push(format!("{}/followers", actor));
             receipients.push("https://www.w3.org/ns/activitystreams#Public".to_string());
+            inboxes.extend(handle_follower_inboxes(
+                &database,
+                &serialized_actor.followers,
+            ));
         }
 
         "private" => {
             direct_receipients.push(format!("{}/followers", actor));
+            inboxes.extend(handle_follower_inboxes(
+                &database,
+                &serialized_actor.followers,
+            ));
         }
 
         _ => (),
     }
+
+    inboxes.dedup();
 
     let activitypub_note = note(
         &actor,
@@ -61,6 +76,27 @@ pub fn build(actor: String, mut content: String, visibility: &str, in_reply_to: 
         serde_json::json!(&activitypub_activity_create),
         inboxes,
     );
+}
+
+fn handle_follower_inboxes(
+    db_connection: &PgConnection,
+    followers: &serde_json::Value,
+) -> Vec<String> {
+    let ap_followers = serde_json::from_value(followers["activitypub"].clone());
+    let mut follow_data: Vec<serde_json::Value> = ap_followers.unwrap();
+    let mut inboxes: Vec<String> = vec![];
+
+    for follower in follow_data {
+        match get_actor_by_uri(db_connection, follower["href"].as_str().unwrap()) {
+            Ok(actor) => {
+                if !actor.local {
+                    inboxes.push(actor.inbox.unwrap());
+                }
+            }
+            Err(_) => (),
+        }
+    }
+    return inboxes;
 }
 
 fn handle_in_reply_to(local_id: Option<String>) -> Option<String> {
