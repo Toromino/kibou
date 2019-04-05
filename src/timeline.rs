@@ -21,7 +21,9 @@ pub fn get_home_timeline(
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         AS activities_ap_home_timeline WHERE \
+         WHERE \
+         (data->>'type' = 'Create' OR \
+         data->>'type' = 'Announce') AND \
          (actor_uri = ANY (ARRAY['{followees}']::varchar(255)[]) OR \
          actor_uri = '{actor_uri}') \
          {id} \
@@ -59,7 +61,7 @@ pub fn get_public_timeline(
 ) -> Result<Vec<Activity>, diesel::result::Error> {
     let query_local = if local {
         format!(
-            "WHERE data->>'actor' LIKE '{base_scheme}://{base_domain}/%'",
+            "AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%'",
             base_scheme = env::get_value(String::from("endpoint.base_scheme")),
             base_domain = env::get_value(String::from("endpoint.base_domain"))
         )
@@ -72,7 +74,8 @@ pub fn get_public_timeline(
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         AS activities_ap_public \
+         WHERE data->>'type' = 'Create' \
+         AND (data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
          {local} \
          {id} \
          LIMIT {limit};",
