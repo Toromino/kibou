@@ -1,3 +1,5 @@
+use activitypub::activity::Activity;
+use activitypub::activity::Object;
 use activitypub::controller::actor_exists;
 use actor;
 use database;
@@ -11,7 +13,7 @@ use web_handler::http_signatures::HTTPSignature;
 // [TODO]
 // Verification of HTTP signatures, therefore a validation of IDs is not needed
 pub fn validate_activity(
-    activity: serde_json::Value,
+    mut activity: serde_json::Value,
     signature: HTTPSignature,
 ) -> Result<serde_json::Value, &'static str> {
     let database = database::establish_connection();
@@ -53,13 +55,19 @@ pub fn validate_activity(
     );
 
     let valid_object = if activity["type"].as_str() == Some("Create") {
-        validate_object(activity["object"].clone(), valid_signature).is_ok()
+        match validate_object(activity["object"].clone(), valid_signature) {
+            Ok(object) => {
+                activity["object"] = object;
+                true
+            }
+            Err(_) => false,
+        }
     } else {
         true
     };
 
     if known_type && valid_actor && valid_signature && valid_object {
-        Ok(activity)
+        Ok(normalize_activity(activity))
     } else {
         Err("Activity could not be validated")
     }
@@ -110,7 +118,7 @@ pub fn validate_object(
     };
 
     if known_type && valid_id && valid_actor {
-        Ok(object)
+        Ok(normalize_object(object))
     } else {
         Err("Object could not be validated")
     }
@@ -165,6 +173,27 @@ pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'s
     } else {
         Err("Object could not be validated")
     }
+}
+
+fn normalize_activity(activity: serde_json::Value) -> serde_json::Value {
+    let mut new_activity: Activity = serde_json::from_value(activity.clone()).unwrap();
+
+    if activity.get("cc").is_none() {
+        new_activity.cc = vec![]
+    }
+
+    new_activity.context = None;
+    serde_json::to_value(new_activity).unwrap()
+}
+
+fn normalize_object(object: serde_json::Value) -> serde_json::Value {
+    let mut new_object: Object = serde_json::from_value(object.clone()).unwrap();
+
+    if object.get("cc").is_none() {
+        new_object.cc = vec![]
+    }
+
+    serde_json::to_value(new_object).unwrap()
 }
 
 fn parse_url(url: &str) -> Result<String, url::ParseError> {
