@@ -134,11 +134,11 @@ fn serialize_actor(sql_actor: QueryActor) -> Actor {
 
 pub fn authorize(
     db_connection: &PgConnection,
-    _username: &str,
+    _preferred_username: &str,
     _password: String,
 ) -> Result<bool, diesel::result::Error> {
     match actors
-        .filter(username.eq(_username))
+        .filter(preferred_username.eq(_preferred_username))
         .limit(1)
         .first::<QueryActor>(db_connection)
     {
