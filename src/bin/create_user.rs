@@ -1,7 +1,9 @@
+extern crate chrono;
 extern crate diesel;
 extern crate getopts;
 extern crate kibou;
 
+use chrono::Utc;
 use getopts::Options;
 use kibou::actor;
 use kibou::database;
@@ -55,6 +57,7 @@ fn main() {
         icon: None,
         local: true,
         keys: serde_json::json!({}),
+        created: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut new_actor)

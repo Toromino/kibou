@@ -2,6 +2,7 @@ use activitypub::actor::add_follow;
 use actor;
 use base64;
 use bcrypt::verify;
+use chrono::Utc;
 use database;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
@@ -213,6 +214,7 @@ fn create_actor_with_optional_values() {
         keys: serde_json::json!({}),
         local: false,
         followers: serde_json::json!({"activitypub": []}),
+        created: Utc::now().naive_utc(),
     };
 
     let email = test_actor.email.clone();
