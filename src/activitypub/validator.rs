@@ -175,23 +175,29 @@ pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'s
     }
 }
 
-fn normalize_activity(activity: serde_json::Value) -> serde_json::Value {
-    let mut new_activity: Activity = serde_json::from_value(activity.clone()).unwrap();
+fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
+    let mut new_activity: Activity;
 
     if activity.get("cc").is_none() {
-        new_activity.cc = vec![]
+        let new_cc_tag: Vec<String> = vec![];
+        activity["cc"] = serde_json::json!(new_cc_tag);
     }
 
+    new_activity = serde_json::from_value(activity.clone()).unwrap();
     new_activity.context = None;
+
     serde_json::to_value(new_activity).unwrap()
 }
 
-fn normalize_object(object: serde_json::Value) -> serde_json::Value {
-    let mut new_object: Object = serde_json::from_value(object.clone()).unwrap();
+fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
+    let mut new_object: Object;
 
     if object.get("cc").is_none() {
-        new_object.cc = vec![]
+        let new_cc_tag: Vec<String> = vec![];
+        object["cc"] = serde_json::json!(new_cc_tag);
     }
+
+    new_object = serde_json::from_value(object.clone()).unwrap();
 
     serde_json::to_value(new_object).unwrap()
 }
