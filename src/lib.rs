@@ -23,6 +23,7 @@ mod activitypub;
 pub mod actor;
 pub mod database;
 pub mod env;
+mod html;
 mod kibou_api;
 mod mastodon_api;
 mod oauth;
