@@ -2,6 +2,7 @@ use activitypub::activity::Activity;
 use activitypub::activity::Object;
 use activitypub::controller::actor_exists;
 use activitypub::controller::fetch_object_by_id;
+use activitypub::controller::object_exists;
 use actor;
 use database;
 use regex::Regex;
@@ -50,12 +51,16 @@ pub fn validate_activity(
     );
 
     let valid_object = if activity["type"].as_str() == Some("Create") {
-        match validate_object(activity["object"].clone(), valid_signature) {
-            Ok(object) => {
-                activity["object"] = object;
-                true
+        if !object_exists(activity["object"].clone().as_str().unwrap()) {
+            match validate_object(activity["object"].clone(), valid_signature) {
+                Ok(object) => {
+                    activity["object"] = object;
+                    true
+                }
+                Err(_) => false,
             }
-            Err(_) => false,
+        } else {
+            false
         }
     } else {
         true
