@@ -14,7 +14,7 @@ pub struct Activity {
     // Properties according to
     // - https://www.w3.org/TR/activitystreams-core/#activities
     #[serde(rename = "@context", skip_serializing_if = "Option::is_none")]
-    pub context: Option<Vec<String>>,
+    pub context: Option<serde_json::Value>,
     #[serde(rename = "type")]
     pub _type: String,
     pub id: String,
