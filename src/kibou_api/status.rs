@@ -7,6 +7,7 @@ use actor::get_actor_by_uri;
 use actor::Actor;
 use database;
 use diesel::PgConnection;
+use html;
 use regex::Regex;
 use web_handler::federator;
 
@@ -19,7 +20,7 @@ pub fn build(actor: String, mut content: String, visibility: &str, in_reply_to: 
     let mut inboxes: Vec<String> = vec![];
     let mut tags: Vec<serde_json::Value> = vec![];
 
-    let parsed_mentions = parse_mentions(content.clone());
+    let parsed_mentions = parse_mentions(html::strip_tags(content));
     direct_receipients.extend(parsed_mentions.0);
     inboxes.extend(parsed_mentions.1);
     tags.extend(parsed_mentions.2);

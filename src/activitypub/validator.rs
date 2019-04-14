@@ -5,6 +5,7 @@ use activitypub::controller::fetch_object_by_id;
 use activitypub::controller::object_exists;
 use actor;
 use database;
+use html;
 use regex::Regex;
 use url::Url;
 use web_handler;
@@ -198,6 +199,7 @@ fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
     }
 
     new_object = serde_json::from_value(object.clone()).unwrap();
+    new_object.content = html::strip_tags(new_object.content);
 
     serde_json::to_value(new_object).unwrap()
 }

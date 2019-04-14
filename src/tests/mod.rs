@@ -9,5 +9,7 @@ mod activitypub_validator;
 #[cfg(test)]
 mod actor;
 #[cfg(test)]
+mod html;
+#[cfg(test)]
 mod kibou_api_account;
 mod utils;
