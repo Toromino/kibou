@@ -1,6 +1,7 @@
 use activitypub::activity::Activity;
 use activitypub::activity::Object;
 use activitypub::controller::actor_exists;
+use activitypub::controller::fetch_object_by_id;
 use actor;
 use database;
 use regex::Regex;
@@ -36,14 +37,8 @@ pub fn validate_activity(
         if actor_exists(activity["actor"].as_str().unwrap()) {
             true
         } else {
-            match web_handler::fetch_remote_object(activity["actor"].as_str().unwrap()) {
-                Ok(remote_object) => {
-                    let json_object: serde_json::Value =
-                        serde_json::from_str(&remote_object).unwrap();
-                    validate_actor(json_object).is_ok()
-                }
-                Err(_) => false,
-            }
+            fetch_object_by_id(activity["actor"].as_str().unwrap().to_string());
+            actor_exists(activity["actor"].as_str().unwrap())
         }
     } else {
         false
