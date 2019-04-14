@@ -30,10 +30,10 @@ use web_handler::http_signatures::HTTPSignature;
 pub fn activity_accept(_actor: &str, _object: &str) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
-        context: Some(vec![
+        context: Some(serde_json::json!(vec![
             String::from("https://www.w3.org/ns/activitystreams"),
             String::from("https://w3id.org/security/v1"),
-        ]),
+        ])),
         _type: String::from("Accept"),
         id: format!(
             "{base_scheme}://{base_domain}/activities/{uuid}",
@@ -72,10 +72,10 @@ pub fn activity_create(
 ) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
-        context: Some(vec![
+        context: Some(serde_json::json!(vec![
             String::from("https://www.w3.org/ns/activitystreams"),
             String::from("https://w3id.org/security/v1"),
-        ]),
+        ])),
         _type: String::from("Create"),
         id: format!(
             "{base_scheme}://{base_domain}/activities/{uuid}",
@@ -107,10 +107,10 @@ pub fn activity_create(
 pub fn activity_follow(_actor: &str, _object: &str) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
-        context: Some(vec![
+        context: Some(serde_json::json!(vec![
             String::from("https://www.w3.org/ns/activitystreams"),
             String::from("https://w3id.org/security/v1"),
-        ]),
+        ])),
         _type: String::from("Follow"),
         id: format!(
             "{base_scheme}://{base_domain}/activities/{uuid}",
@@ -144,10 +144,10 @@ pub fn activity_follow(_actor: &str, _object: &str) -> Activity {
 pub fn activity_like(_actor: &str, _object: &str, _to: Vec<String>, _cc: Vec<String>) -> Activity {
     let database = database::establish_connection();
     let new_activity = Activity {
-        context: Some(vec![
+        context: Some(serde_json::json!(vec![
             String::from("https://www.w3.org/ns/activitystreams"),
             String::from("https://w3id.org/security/v1"),
-        ]),
+        ])),
         _type: String::from("Like"),
         id: format!(
             "{base_scheme}://{base_domain}/activities/{uuid}",
