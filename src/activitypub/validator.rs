@@ -11,10 +11,6 @@ use url::Url;
 use web_handler;
 use web_handler::http_signatures::HTTPSignature;
 
-// *Notes*
-//
-// [TODO]
-// Verification of HTTP signatures, therefore a validation of IDs is not needed
 pub fn validate_activity(
     mut activity: serde_json::Value,
     signature: HTTPSignature,
@@ -52,7 +48,7 @@ pub fn validate_activity(
     );
 
     let valid_object = if activity["type"].as_str() == Some("Create") {
-        if !object_exists(activity["object"].clone().as_str().unwrap()) {
+        if !object_exists(activity["object"]["id"].as_str().unwrap()) {
             match validate_object(activity["object"].clone(), valid_signature) {
                 Ok(object) => {
                     activity["object"] = object;
