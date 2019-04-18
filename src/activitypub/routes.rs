@@ -1,17 +1,18 @@
 use activitypub::activity as ap_activity;
 use activitypub::actor as ap_actor;
 use activitypub::controller;
+use activitypub::ActivitypubMediatype;
 use activitypub::HTTPSignature;
 use rocket_contrib::json::JsonValue;
 use serde_json;
 
-#[get("/activities/<id>", format = "application/activity+json")]
-pub fn activity(id: String) -> JsonValue {
+#[get("/activities/<id>")]
+pub fn activity(media_type: ActivitypubMediatype, id: String) -> JsonValue {
     ap_activity::get_activity_json_by_id(id)
 }
 
-#[get("/actors/<handle>", format = "application/activity+json")]
-pub fn actor(handle: String) -> JsonValue {
+#[get("/actors/<handle>")]
+pub fn actor(media_type: ActivitypubMediatype, handle: String) -> JsonValue {
     ap_actor::get_json_by_preferred_username(handle)
 }
 
@@ -24,14 +25,14 @@ pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(activity: String, _signature: HTTPSignature) {
+pub fn inbox(media_type: ActivitypubMediatype, activity: String, _signature: HTTPSignature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
         _signature,
     );
 }
 
-#[get("/objects/<id>", format = "application/activity+json")]
-pub fn object(id: String) -> JsonValue {
+#[get("/objects/<id>")]
+pub fn object(media_type: ActivitypubMediatype, id: String) -> JsonValue {
     ap_activity::get_object_json_by_id(id)
 }

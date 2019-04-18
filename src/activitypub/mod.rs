@@ -4,12 +4,47 @@ pub mod controller;
 pub mod routes;
 pub mod validator;
 
+use rocket::http::MediaType;
 use rocket::http::Status;
 use rocket::request;
 use rocket::request::FromRequest;
 use rocket::request::Request;
 use rocket::Outcome;
 use web_handler::http_signatures::HTTPSignature;
+
+pub struct ActivitypubMediatype(bool);
+
+impl<'a, 'r> FromRequest<'a, 'r> for ActivitypubMediatype {
+    type Error = ();
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<ActivitypubMediatype, ()> {
+        let activitypub_default = MediaType::with_params(
+            "application",
+            "ld+json",
+            ("profile", "https://www.w3.org/ns/activitystreams"),
+        );
+        let activitypub_lite = MediaType::new("application", "activity+json");
+
+        match request.accept() {
+            Some(accept) => {
+                if accept
+                    .media_types()
+                    .find(|t| t == &&activitypub_default)
+                    .is_some()
+                    || accept
+                        .media_types()
+                        .find(|t| t == &&activitypub_lite)
+                        .is_some()
+                {
+                    Outcome::Success(ActivitypubMediatype(true))
+                } else {
+                    Outcome::Forward(())
+                }
+            }
+            None => Outcome::Forward(()),
+        }
+    }
+}
 
 impl<'a, 'r> FromRequest<'a, 'r> for HTTPSignature {
     type Error = ();
