@@ -23,6 +23,10 @@ fn validate_object() {
 
 fn valid_dummy_object(actor_uri: &str) -> Object {
     Object {
+        context: Some(serde_json::json!(vec![
+            String::from("https://www.w3.org/ns/activitystreams"),
+            String::from("https://w3id.org/security/v1"),
+        ])),
         _type: String::from("Note"),
         id: String::from("https://example.tld/objects/afb1c173-2ecd-4250-9bca-5e90d4340e06"),
         published: String::from("2015-02-10T15:04:55Z"),
@@ -41,6 +45,10 @@ fn valid_dummy_object(actor_uri: &str) -> Object {
 
 fn invalid_dummy_object() -> Object {
     Object {
+        context: Some(serde_json::json!(vec![
+            String::from("https://www.w3.org/ns/activitystreams"),
+            String::from("https://w3id.org/security/v1"),
+        ])),
         _type: String::from("Notice"),
         id: String::from("https://example.tld/objects/93254c3a-dd02-4987-adc7-abfb815799da"),
         published: String::from("2015-02-10T15:04:55Z"),
