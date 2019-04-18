@@ -189,6 +189,10 @@ pub fn note(
     _tag: Vec<serde_json::Value>,
 ) -> Object {
     Object {
+        context: Some(serde_json::json!(vec![
+            String::from("https://www.w3.org/ns/activitystreams"),
+            String::from("https://w3id.org/security/v1"),
+        ])),
         _type: String::from("Note"),
         id: format!(
             "{base_scheme}://{base_domain}/objects/{uuid}",

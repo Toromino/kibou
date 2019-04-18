@@ -28,11 +28,14 @@ pub struct Activity {
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 pub struct Object {
+    #[serde(rename = "@context", skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Value>,
     #[serde(rename = "type")]
     pub _type: String,
     pub id: String,
     pub published: String,
     pub attributedTo: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub inReplyTo: Option<String>,
     pub summary: Option<String>,
     pub content: String,
@@ -80,9 +83,7 @@ pub fn get_object_json_by_id(id: String) -> JsonValue {
 }
 
 pub fn serialize_from_internal_activity(activity: activity::Activity) -> Activity {
-    let payload: Activity = serde_json::from_value(activity.data).unwrap();
-
-    payload
+    return serde_json::from_value(activity.data).unwrap();
 }
 
 pub fn create_internal_activity(

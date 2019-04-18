@@ -18,13 +18,12 @@ pub fn validate_activity(
     let database = database::establish_connection();
     let known_type = if activity.get("type").is_some() {
         match activity["type"].as_str() {
-            Some("Create") => true,
-            Some("Update") => true,
-            Some("Delete") => true,
-            Some("Follow") => true,
-            Some("Undo") => true,
-            Some("Like") => true,
+            Some("Accept") => true,
             Some("Announce") => true,
+            Some("Create") => true,
+            Some("Follow") => true,
+            Some("Like") => true,
+            Some("Undo") => true,
             _ => false,
         }
     } else {
@@ -196,6 +195,7 @@ fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
 
     new_object = serde_json::from_value(object.clone()).unwrap();
     new_object.content = html::strip_tags(new_object.content);
+    new_object.context = None;
 
     serde_json::to_value(new_object).unwrap()
 }
