@@ -1,7 +1,7 @@
 use regex::Regex;
 
 pub fn strip_tags(input: String) -> String {
-    let allowed_tags = vec!["a", "b", "em", "img", "strong", "u"];
+    let allowed_tags = vec!["a", "b", "br", "em", "img", "strong", "u"];
     let forbidden_attributes = vec![
         "onabort",
         "onafterprint",
