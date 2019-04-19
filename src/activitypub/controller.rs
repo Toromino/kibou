@@ -239,24 +239,22 @@ pub fn fetch_object_by_id(url: String) {
                         let parsed_object: serde_json::Value =
                             serde_json::from_str(&object).unwrap();
 
-                        match validator::validate_object(parsed_object.clone(), false)
-                        {
+                        match validator::validate_object(parsed_object.clone(), false) {
                             Ok(as2_object) => {
                                 handle_object(as2_object);
                                 println!("Successfully fetched object: {}", &url);
-                            },
-                            Err(_) => ()
+                            }
+                            Err(_) => (),
                         }
 
-                        match validator::validate_actor(parsed_object.clone())
-                        {
+                        match validator::validate_actor(parsed_object.clone()) {
                             Ok(as2_actor) => {
                                 handle_actor(as2_actor);
                                 println!("Successfully fetched actor: {}", &url);
-                            },
-                            Err(_) => ()
+                            }
+                            Err(_) => (),
                         }
-                    },
+                    }
                     Err(_) => eprintln!("Unable to fetch document: {}", &url),
                 }
             }

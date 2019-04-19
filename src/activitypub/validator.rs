@@ -100,14 +100,8 @@ pub fn validate_object(
         if actor_exists(object["attributedTo"].as_str().unwrap()) {
             true
         } else {
-            match web_handler::fetch_remote_object(object["attributedTo"].as_str().unwrap()) {
-                Ok(remote_object) => {
-                    let json_object: serde_json::Value =
-                        serde_json::from_str(&remote_object).unwrap();
-                    validate_actor(json_object).is_ok()
-                }
-                Err(_) => false,
-            }
+            fetch_object_by_id(object["attributedTo"].as_str().unwrap().to_string());
+            actor_exists(object["attributedTo"].as_str().unwrap())
         }
     } else {
         false

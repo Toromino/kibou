@@ -25,7 +25,7 @@ pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(media_type: ActivitypubMediatype, activity: String, _signature: HTTPSignature) {
+pub fn inbox(activity: String, _signature: HTTPSignature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
         _signature,
