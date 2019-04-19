@@ -2,18 +2,18 @@ use activitypub::activity as ap_activity;
 use activitypub::actor as ap_actor;
 use activitypub::controller;
 use activitypub::ActivitypubMediatype;
+use activitypub::ActivitystreamsResponse;
 use activitypub::HTTPSignature;
-use rocket_contrib::json::JsonValue;
 use serde_json;
 
 #[get("/activities/<id>")]
-pub fn activity(media_type: ActivitypubMediatype, id: String) -> JsonValue {
-    ap_activity::get_activity_json_by_id(id)
+pub fn activity(media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
+    ActivitystreamsResponse(ap_activity::get_activity_json_by_id(id).to_string())
 }
 
 #[get("/actors/<handle>")]
-pub fn actor(media_type: ActivitypubMediatype, handle: String) -> JsonValue {
-    ap_actor::get_json_by_preferred_username(handle)
+pub fn actor(media_type: ActivitypubMediatype, handle: String) -> ActivitystreamsResponse {
+    ActivitystreamsResponse(ap_actor::get_json_by_preferred_username(handle).to_string())
 }
 
 #[post("/actors/<id>/inbox", data = "<activity>")]
@@ -33,6 +33,6 @@ pub fn inbox(activity: String, _signature: HTTPSignature) {
 }
 
 #[get("/objects/<id>")]
-pub fn object(media_type: ActivitypubMediatype, id: String) -> JsonValue {
-    ap_activity::get_object_json_by_id(id)
+pub fn object(media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
+    ActivitystreamsResponse(ap_activity::get_object_json_by_id(id).to_string())
 }

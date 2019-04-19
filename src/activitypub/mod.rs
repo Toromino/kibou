@@ -4,15 +4,17 @@ pub mod controller;
 pub mod routes;
 pub mod validator;
 
+use rocket::http::ContentType;
 use rocket::http::MediaType;
 use rocket::http::Status;
-use rocket::request;
-use rocket::request::FromRequest;
-use rocket::request::Request;
+use rocket::request::{self, FromRequest, Request};
+use rocket::response::{self, Responder, Response};
 use rocket::Outcome;
+use std::io::Cursor;
 use web_handler::http_signatures::HTTPSignature;
 
 pub struct ActivitypubMediatype(bool);
+pub struct ActivitystreamsResponse(String);
 
 impl<'a, 'r> FromRequest<'a, 'r> for ActivitypubMediatype {
     type Error = ();
@@ -43,6 +45,15 @@ impl<'a, 'r> FromRequest<'a, 'r> for ActivitypubMediatype {
             }
             None => Outcome::Forward(()),
         }
+    }
+}
+
+impl<'r> Responder<'r> for ActivitystreamsResponse {
+    fn respond_to(self, _: &Request) -> response::Result<'r> {
+        Response::build()
+            .header(ContentType::new("application", "activity+json"))
+            .sized_body(Cursor::new(self.0))
+            .ok()
     }
 }
 

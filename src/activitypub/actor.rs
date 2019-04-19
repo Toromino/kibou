@@ -3,10 +3,8 @@ use actor;
 use chrono::Utc;
 use database;
 use env;
-use rocket_contrib::json;
-use rocket_contrib::json::JsonValue;
 use serde::{Deserialize, Serialize};
-use serde_json;
+use serde_json::{self, json};
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
 #[allow(non_snake_case)]
@@ -89,7 +87,7 @@ pub fn remove_follow(account: &str, source: &str) {
 // [TODO]
 pub fn refresh() {}
 
-pub fn get_json_by_preferred_username(preferred_username: String) -> JsonValue {
+pub fn get_json_by_preferred_username(preferred_username: String) -> serde_json::Value {
     let database = database::establish_connection();
 
     match actor::get_local_actor_by_preferred_username(&database, preferred_username) {

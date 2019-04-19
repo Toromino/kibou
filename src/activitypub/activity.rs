@@ -1,10 +1,8 @@
 use activity;
 use database;
 use env;
-use rocket_contrib::json;
-use rocket_contrib::json::JsonValue;
 use serde::{Deserialize, Serialize};
-use serde_json;
+use serde_json::{self, json};
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
 
@@ -52,7 +50,7 @@ pub struct Tag {
     pub name: String,
 }
 
-pub fn get_activity_json_by_id(id: String) -> JsonValue {
+pub fn get_activity_json_by_id(id: String) -> serde_json::Value {
     let database = database::establish_connection();
     let activity_id = format!(
         "{}://{}/activities/{}",
@@ -67,7 +65,7 @@ pub fn get_activity_json_by_id(id: String) -> JsonValue {
     }
 }
 
-pub fn get_object_json_by_id(id: String) -> JsonValue {
+pub fn get_object_json_by_id(id: String) -> serde_json::Value {
     let database = database::establish_connection();
     let object_id = format!(
         "{}://{}/objects/{}",
