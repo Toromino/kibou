@@ -8,11 +8,13 @@ use rocket_contrib::json::JsonValue;
 pub fn webfinger(resource: &RawStr) -> JsonValue {
     let database = database::establish_connection();
 
-    match get_actor_by_acct(&database, str::replace(resource.as_str(), "acct:", "")) {
+    let mut parsed_resource: &str = &resource.as_str().replace("%3A", ":").replace("%40", "@");
+
+    match get_actor_by_acct(&database, str::replace(parsed_resource, "acct:", "")) {
         Ok(actor) => {
             if actor.local {
                 json!({
-                    "subject": resource.as_str(),
+                    "subject": parsed_resource,
 
                     "links": [
                     {
