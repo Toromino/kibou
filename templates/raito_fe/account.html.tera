@@ -1,0 +1,37 @@
+{% extends "raito_fe/index" %}
+{% block router %}
+<div id="account-header" style="background-image: url({{account_header}});">
+    <div id="account-header-shadow"></div>
+    <img src="{{account_avatar}}" id="account-profile-picture">
+    <div id="account-header-displayname">{{account_display_name}}</div>
+    <div id="account-header-username">{{account_acct}}</div>
+    <div id="account-header-follow"><a href="">👤 Follow</a></div>
+    <div id="account-header-menu">
+        <ul>
+            <li>Statuses
+                <br />
+                <p>{{account_statuses_count}}</p>
+            </li>
+            <li>Following
+                <br />
+                <p>{{account_following_count}}</p>
+            </li>
+            <li style="border-right-style: solid;">Followers
+                <br />
+                <p>{{account_followers_count}}</p>
+            </li>
+            <li style="float: right; width: 40px; padding-top: 10px;">&#9881;</li>
+        </ul>
+    </div>
+</div>
+
+<div id="account-bio">
+    <div id="account-bio-inner">
+        {{account_note | safe}}
+    </div>
+</div>
+
+<div id="account-timeline">
+    {{account_timeline | safe}}
+</div>
+{% endblock router %}

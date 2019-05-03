@@ -1,8 +1,6 @@
-use activity::serialize_activity;
-use activity::Activity;
 use actor;
 use actor::Actor;
-use database::models::QueryActivity;
+use database::models::QueryActivityId;
 use diesel::pg::PgConnection;
 use diesel::query_dsl::RunQueryDsl;
 use diesel::sql_query;
@@ -15,11 +13,11 @@ pub fn get_home_timeline(
     since_id: Option<i64>,
     min_id: Option<i64>,
     limit: Option<i64>,
-) -> Result<Vec<Activity>, diesel::result::Error> {
+) -> Result<Vec<i64>, diesel::result::Error> {
     let query_limit = if limit.is_some() { limit.unwrap() } else { 20 };
 
     match sql_query(format!(
-        "SELECT * \
+        "SELECT id \
          FROM activities \
          WHERE \
          (data->>'type' = 'Create' OR \
@@ -28,20 +26,20 @@ pub fn get_home_timeline(
          actor_uri = '{actor_uri}') \
          {id} \
          LIMIT {limit};",
-        followees = actor::get_actor_followees(db_connection, &actor.actor_uri)
+        followees = actor::get_actor_followees_uri(db_connection, &actor.actor_uri)
             .unwrap()
             .join("','"),
         actor_uri = actor.actor_uri,
         id = get_id_order_query(max_id, since_id, min_id),
         limit = query_limit
     ))
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity) => {
-            let mut serialized_activities: Vec<Activity> = vec![];
+            let mut serialized_activities: Vec<i64> = Vec::new();
 
             for object in activity {
-                serialized_activities.push(serialize_activity(object));
+                serialized_activities.push(object.id);
             }
 
             Ok(serialized_activities)
@@ -58,7 +56,7 @@ pub fn get_public_timeline(
     since_id: Option<i64>,
     min_id: Option<i64>,
     limit: Option<i64>,
-) -> Result<Vec<Activity>, diesel::result::Error> {
+) -> Result<Vec<i64>, diesel::result::Error> {
     let query_local = if local {
         format!(
             "AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%'",
@@ -72,10 +70,10 @@ pub fn get_public_timeline(
     let query_limit = if limit.is_some() { limit.unwrap() } else { 20 };
 
     match sql_query(format!(
-        "SELECT * \
+        "SELECT id \
          FROM activities \
-         WHERE data->>'type' = 'Create' \
-         AND (data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
+         WHERE data->>'type' = 'Create' AND \
+         (data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
          {local} \
          {id} \
          LIMIT {limit};",
@@ -83,13 +81,53 @@ pub fn get_public_timeline(
         id = get_id_order_query(max_id, since_id, min_id),
         limit = query_limit
     ))
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity) => {
-            let mut serialized_activities: Vec<Activity> = vec![];
+            let mut serialized_activities: Vec<i64> = Vec::new();
 
             for object in activity {
-                serialized_activities.push(serialize_activity(object));
+                serialized_activities.push(object.id);
+            }
+
+            Ok(serialized_activities)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn get_user_timeline(
+    db_connection: &PgConnection,
+    actor: Actor,
+    max_id: Option<i64>,
+    since_id: Option<i64>,
+    min_id: Option<i64>,
+    limit: Option<i64>,
+) -> Result<Vec<i64>, diesel::result::Error> {
+    let query_limit = if limit.is_some() { limit.unwrap() } else { 20 };
+
+    match sql_query(format!(
+        "SELECT id \
+         FROM activities \
+         WHERE \
+         (data->>'type' = 'Create' OR \
+         data->>'type' = 'Announce') AND \
+         actor_uri = '{actor_uri}' AND \
+         ((data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' OR \
+         (data->>'cc')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public') \
+         {id} \
+         LIMIT {limit};",
+        actor_uri = actor.actor_uri,
+        id = get_id_order_query(max_id, since_id, min_id),
+        limit = query_limit
+    ))
+    .load::<QueryActivityId>(db_connection)
+    {
+        Ok(activity) => {
+            let mut serialized_activities: Vec<i64> = Vec::new();
+
+            for object in activity {
+                serialized_activities.push(object.id);
             }
 
             Ok(serialized_activities)

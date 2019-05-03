@@ -1,0 +1,33 @@
+<div class="status">
+    <div class="status-header">
+        <img src="{{status_account_avatar}}" class="status-user-avatar">
+
+        <div class="status-user-info">
+            <div class="status-user-info-displayname"><a href="{{status_account_url}}">{{status_account_displayname}}</a></div>
+            <div class="status-user-info-username"><a href="{{status_account_url}}">{{status_account_acct}}</a></div>
+        </div>
+    </div>
+
+    <div class="status-content">{{status_content | safe}}</div>
+
+    <div class="status-info">
+        <ul>
+            <li>
+                <div class="status-reply"><a class="status-reply-button">⤷</a><a class="status-info-count">{{status_replies_count}}</a>
+                </div>
+            </li>
+            <li>
+                <div class="status-favourite"><a class="status-favourite-button">♡</a><a class="status-info-count">{{status_favourites_count}}</a>
+                </div>
+            </li>
+            <li>
+                <div class="status-share"><a class="status-share-button">⟳</a><a class="status-info-count">{{status_reblogs_count}}</a>
+                </div>
+            </li>
+        </ul>
+        <div class="status-info-meta">
+        <a href="{{status_url}}">View Thread</a>
+        <a href="{{status_uri}}">{{status_created_at}}</a>
+        </div>
+    </div>
+</div>

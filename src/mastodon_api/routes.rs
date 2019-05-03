@@ -1,20 +1,15 @@
-use mastodon_api::account;
-use mastodon_api::account::get_json_by_oauth_token;
-use mastodon_api::application;
-use mastodon_api::application::ApplicationForm;
-use mastodon_api::status;
-use mastodon_api::status::{post_status, StatusForm};
-use mastodon_api::timeline::{
-    get_home_timeline_json, get_public_timeline_json, HomeTimeline, PublicTimeline,
+use mastodon_api::controller;
+use mastodon_api::{
+    get_instance_info, parse_authorization_header, ApplicationForm, AuthorizationHeader,
+    HomeTimeline, PublicTimeline, StatusForm,
 };
-use mastodon_api::{get_instance_info, parse_authorization_header, AuthorizationHeader};
 use oauth::application::Application;
 use rocket::request::LenientForm;
 use rocket_contrib::json::JsonValue;
 
 #[get("/api/v1/accounts/<id>")]
 pub fn account(id: i64) -> JsonValue {
-    account::get_json_by_id(id)
+    controller::account_json_by_id(id)
 }
 
 #[options("/api/v1/accounts/<id>")]
@@ -22,9 +17,59 @@ pub fn options_account(id: i64) -> JsonValue {
     account(id)
 }
 
+#[post("/api/v1/accounts/<id>/follow")]
+pub fn account_follow(_token: AuthorizationHeader, id: i64) -> JsonValue {
+    controller::follow(parse_authorization_header(&_token.to_string()), id)
+}
+
+#[get("/api/v1/accounts/<id>/statuses?<only_media>&<pinned>&<exclude_replies>&<max_id>&<since_id>&<min_id>&<limit>&<exclude_reblogs>")]
+pub fn account_statuses(
+    id: i64,
+    only_media: Option<bool>,
+    pinned: Option<bool>,
+    exclude_replies: Option<bool>,
+    max_id: Option<i64>,
+    since_id: Option<i64>,
+    min_id: Option<i64>,
+    limit: Option<i64>,
+    exclude_reblogs: Option<bool>,
+) -> JsonValue {
+    controller::account_statuses_json_by_id(id, max_id, since_id, min_id, limit)
+}
+
+#[options("/api/v1/accounts/<id>/statuses?<only_media>&<pinned>&<exclude_replies>&<max_id>&<since_id>&<min_id>&<limit>&<exclude_reblogs>")]
+pub fn options_account_statuses(
+    id: i64,
+    only_media: Option<bool>,
+    pinned: Option<bool>,
+    exclude_replies: Option<bool>,
+    max_id: Option<i64>,
+    since_id: Option<i64>,
+    min_id: Option<i64>,
+    limit: Option<i64>,
+    exclude_reblogs: Option<bool>,
+) -> JsonValue {
+    account_statuses(
+        id,
+        only_media,
+        pinned,
+        exclude_replies,
+        max_id,
+        since_id,
+        min_id,
+        limit,
+        exclude_reblogs,
+    )
+}
+
+#[post("/api/v1/accounts/<id>/unfollow")]
+pub fn account_unfollow(_token: AuthorizationHeader, id: i64) -> JsonValue {
+    controller::unfollow(parse_authorization_header(&_token.to_string()), id)
+}
+
 #[get("/api/v1/accounts/verify_credentials")]
 pub fn account_verify_credentials(_token: AuthorizationHeader) -> JsonValue {
-    get_json_by_oauth_token(parse_authorization_header(&_token.to_string()))
+    controller::account_json_by_oauth_token(parse_authorization_header(&_token.to_string()))
 }
 
 #[options("/api/v1/accounts/verify_credentials")]
@@ -35,7 +80,7 @@ pub fn options_account_verify_credentials(_token: AuthorizationHeader) -> JsonVa
 #[post("/api/v1/apps", data = "<form>")]
 pub fn application(form: LenientForm<ApplicationForm>) -> JsonValue {
     let form_data: ApplicationForm = form.into_inner();
-    application::create_application(Application {
+    controller::application_create(Application {
         id: 0,
         client_name: Some(form_data.client_name),
         client_id: String::new(),
@@ -44,6 +89,11 @@ pub fn application(form: LenientForm<ApplicationForm>) -> JsonValue {
         scopes: form_data.scopes,
         website: form_data.website,
     })
+}
+
+#[options("/api/v1/apps", data = "<form>")]
+pub fn options_application(form: LenientForm<ApplicationForm>) -> JsonValue {
+    application(form)
 }
 
 #[get("/api/v1/instance")]
@@ -58,7 +108,7 @@ pub fn options_instance() -> JsonValue {
 
 #[get("/api/v1/statuses/<id>")]
 pub fn status(id: i64) -> JsonValue {
-    status::get_json_by_id(id)
+    controller::status_json_by_id(id)
 }
 
 #[options("/api/v1/statuses/<id>")]
@@ -66,9 +116,14 @@ pub fn options_status(id: i64) -> JsonValue {
     status(id)
 }
 
+#[get("/api/v1/statuses/<id>/context")]
+pub fn status_context(id: i64) -> JsonValue {
+    controller::context_json_for_id(id)
+}
+
 #[post("/api/v1/statuses", data = "<form>")]
-pub fn status_post(form: LenientForm<StatusForm>, _token: AuthorizationHeader) {
-    post_status(
+pub fn status_post(form: LenientForm<StatusForm>, _token: AuthorizationHeader) -> JsonValue {
+    controller::status_post(
         form.into_inner(),
         parse_authorization_header(&_token.to_string()),
     )
@@ -82,7 +137,7 @@ pub fn home_timeline(
     limit: Option<i64>,
     _token: AuthorizationHeader,
 ) -> JsonValue {
-    get_home_timeline_json(
+    controller::home_timeline_json(
         HomeTimeline {
             max_id,
             since_id,
@@ -113,7 +168,7 @@ pub fn public_timeline(
     min_id: Option<i64>,
     limit: Option<i64>,
 ) -> JsonValue {
-    get_public_timeline_json(PublicTimeline {
+    controller::public_timeline_json(PublicTimeline {
         local,
         only_media,
         max_id,

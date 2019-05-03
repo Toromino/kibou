@@ -39,7 +39,6 @@ pub fn count_ap_object_reactions_by_id(
     match sql_query(format!("SELECT * FROM activities WHERE data->>'type' = '{reaction_type}' AND data->>'object'= '{id}';",
                             reaction_type = reaction,
                             id = object_id))
-        .clone()
         .load::<QueryActivity>(db_connection)
         {
             Ok(activity_arr) => Ok(activity_arr.len()),
@@ -47,13 +46,36 @@ pub fn count_ap_object_reactions_by_id(
         }
 }
 
+pub fn count_ap_notes_for_actor(
+    db_connection: &PgConnection,
+    actor: &str,
+) -> Result<usize, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT * \
+         FROM activities \
+         WHERE data->>'type' = 'Create' \
+         AND data->'object'->>'type' = 'Note' \
+         AND data->>'actor' = '{actor}' \
+         AND ((data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
+         OR (data->>'cc')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public');",
+        actor = actor
+    ))
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
+}
+
 pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
         "SELECT * \
          FROM activities \
-         WHERE data->>'type' = 'Create'\
-         AND data->'object'->>'type' = 'Note'\
-         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%';",
+         WHERE data->>'type' = 'Create' \
+         AND data->'object'->>'type' = 'Note' \
+         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%' \
+         AND ((data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
+         OR (data->>'cc')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public')",
         base_scheme = env::get_value(String::from("endpoint.base_scheme")),
         base_domain = env::get_value(String::from("endpoint.base_domain"))
     ))

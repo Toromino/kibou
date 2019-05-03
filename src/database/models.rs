@@ -12,6 +12,12 @@ pub struct QueryActivity {
     pub actor_uri: String,
 }
 
+#[derive(Queryable, PartialEq, QueryableByName, Clone)]
+#[table_name = "activities"]
+pub struct QueryActivityId {
+    pub id: i64,
+}
+
 #[derive(Insertable)]
 #[table_name = "activities"]
 pub struct InsertActivity<'a> {

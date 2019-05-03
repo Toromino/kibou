@@ -79,7 +79,7 @@ pub fn strip_tags(input: String) -> String {
     let tag_regex: Regex = Regex::new("<[^>]*>").unwrap();
 
     for tag in tag_regex.captures_iter(&input) {
-        let mut parsed_tag: Vec<&str> = tag
+        let parsed_tag: Vec<&str> = tag
             .get(0)
             .unwrap()
             .as_str()

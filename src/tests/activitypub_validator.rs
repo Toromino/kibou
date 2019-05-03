@@ -40,6 +40,8 @@ fn valid_dummy_object(actor_uri: &str) -> Object {
             String::from("https://www.w3.org/ns/activitystreams#Public"),
         ],
         tag: None,
+        attachment: None,
+        sensitive: None,
     }
 }
 
@@ -62,5 +64,7 @@ fn invalid_dummy_object() -> Object {
             String::from("https://www.w3.org/ns/activitystreams#Public"),
         ],
         tag: None,
+        attachment: None,
+        sensitive: None,
     }
 }

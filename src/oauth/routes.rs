@@ -4,8 +4,8 @@ use rocket::request::LenientForm;
 use rocket::response::Redirect;
 use rocket_contrib::templates::Template;
 
-use oauth::authorization::UserForm;
 use oauth::authorization::handle_user_authorization;
+use oauth::authorization::UserForm;
 use oauth::token::{get_token, TokenForm};
 use rocket_contrib::json::JsonValue;
 

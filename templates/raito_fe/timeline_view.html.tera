@@ -1,0 +1,18 @@
+{% extends "raito_fe/index" %}
+
+{% block router %}
+{% if timeline_name == "Conversation" %}
+<div class="header">
+Conversation
+</div>
+{% else %}
+<div id="timeline-menu" class="header">
+<ul>
+<li {% if timeline_name == "Public" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/public">Public</a></li>
+<li {% if timeline_name == "Global" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/global">Global</a></li>
+</ul>
+</div>
+{% endif %}
+
+{{timeline | safe}}
+{% endblock router %}

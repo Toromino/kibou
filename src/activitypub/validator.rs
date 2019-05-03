@@ -175,6 +175,8 @@ fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
 
     new_activity = serde_json::from_value(activity.clone()).unwrap();
     new_activity.context = None;
+    new_activity.to = normalize_public_addressing(new_activity.to);
+    new_activity.cc = normalize_public_addressing(new_activity.cc);
 
     serde_json::to_value(new_activity).unwrap()
 }
@@ -190,8 +192,30 @@ fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
     new_object = serde_json::from_value(object.clone()).unwrap();
     new_object.content = html::strip_tags(new_object.content);
     new_object.context = None;
+    new_object.to = normalize_public_addressing(new_object.to);
+    new_object.cc = normalize_public_addressing(new_object.cc);
 
     serde_json::to_value(new_object).unwrap()
+}
+
+fn normalize_public_addressing(mut collection: Vec<String>) -> Vec<String> {
+    let alternative_public_address = vec![
+        "https://www.w3.org/ns/activitystreams",
+        "Public",
+        "as:Public",
+    ];
+
+    for address in alternative_public_address {
+        if collection.contains(&address.to_string()) {
+            let index = collection
+                .iter()
+                .position(|receipient| receipient == &address.to_string())
+                .unwrap();
+            collection[index] = String::from("https://www.w3.org/ns/activitystreams#Public");
+        }
+    }
+
+    return collection;
 }
 
 fn parse_url(url: &str) -> Result<String, url::ParseError> {

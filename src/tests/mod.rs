@@ -11,5 +11,5 @@ mod actor;
 #[cfg(test)]
 mod html;
 #[cfg(test)]
-mod kibou_api_account;
+mod kibou_api;
 mod utils;

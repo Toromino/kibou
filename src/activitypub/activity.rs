@@ -40,6 +40,10 @@ pub struct Object {
     pub to: Vec<String>,
     pub cc: Vec<String>,
     pub tag: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sensitive: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]

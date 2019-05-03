@@ -150,138 +150,17 @@ pub fn authorize(
     }
 }
 
-pub fn is_actor_followed_by(
+pub fn count_followees(
     db_connection: &PgConnection,
-    actor: &Actor,
-    followee: &str,
-) -> Result<bool, diesel::result::Error> {
+    actor_id: i64,
+) -> Result<usize, diesel::result::Error> {
     match actors
-        .filter(actor_uri.eq(&actor.actor_uri))
-        .limit(1)
+        .filter(id.eq(actor_id))
         .first::<QueryActor>(db_connection)
     {
-        Ok(actor) => match actor.followers["activitypub"].as_array() {
-            Some(follows) => {
-                let mut follow_exists: bool = false;
-
-                for follow in follows {
-                    if follow["href"].as_str() == Some(followee) {
-                        follow_exists = true;
-                    }
-                }
-
-                Ok(follow_exists)
-            }
-            None => Ok(false),
-        },
-        Err(e) => Err(e),
-    }
-}
-
-pub fn get_actor_by_acct(
-    db_connection: &PgConnection,
-    acct: String,
-) -> Result<Actor, diesel::result::Error> {
-    if acct.contains("@") {
-        let acct_split = acct.split('@');
-        let acct_vec = acct_split.collect::<Vec<&str>>();
-
-        match sql_query(format!("SELECT * FROM actors WHERE preferred_username = '{username}' AND actor_uri LIKE '%{uri}/%' LIMIT 1;", username=acct_vec[0], uri=acct_vec[1]))
-             .clone()
-             .load::<QueryActor>(db_connection)
-         {
-             Ok(actor) => {
-                 if !actor.is_empty()
-                 {
-                     let new_actor = std::borrow::ToOwned::to_owned(&actor[0]);
-                     Ok(serialize_actor(new_actor))
-                 } else { Err(diesel::result::Error::NotFound) }
-             },
-             Err(e) => Err(e),
-         }
-    } else {
-        get_local_actor_by_preferred_username(&db_connection, acct)
-    }
-}
-
-pub fn get_actor_by_id(
-    db_connection: &PgConnection,
-    _id: i64,
-) -> Result<Actor, diesel::result::Error> {
-    match actors
-        .filter(id.eq(_id))
-        .limit(1)
-        .first::<QueryActor>(db_connection)
-    {
-        Ok(actor) => Ok(serialize_actor(actor)),
-        Err(e) => Err(e),
-    }
-}
-
-pub fn get_actor_by_uri(
-    db_connection: &PgConnection,
-    _actor_uri: &str,
-) -> Result<Actor, diesel::result::Error> {
-    match actors
-        .filter(actor_uri.eq(_actor_uri))
-        .limit(1)
-        .first::<QueryActor>(db_connection)
-    {
-        Ok(actor) => Ok(serialize_actor(actor)),
-        Err(e) => Err(e),
-    }
-}
-
-pub fn get_actor_followees(
-    db_connection: &PgConnection,
-    _actor_uri: &str,
-) -> Result<Vec<String>, diesel::result::Error> {
-    match sql_query(format!(
-        "WITH actor \
-        AS ( SELECT id, email, password, actor_uri, username, preferred_username, summary, inbox, icon, keys, created, modified, local, jsonb_array_elements(followers->'activitypub') \
-        AS followers FROM actors) \
-        SELECT * FROM actor \
-        WHERE (followers->>'href') = '{uri}';",
-        uri = _actor_uri
-    ))
-        .load::<QueryActor>(db_connection)
-        {
-            Ok(actor_vec) => {
-                let mut followings: Vec<String> = vec![];
-
-                for actor in actor_vec {
-                    followings.push(actor.actor_uri);
-                }
-
-                return Ok(followings);
-            },
-            Err(e) => Err(e),
-        }
-}
-
-/// Runs a database query based on a local actor's preferred_username, returns either
-/// an actor::Actor or a diesel::result::Error
-///
-/// # Parameters
-///
-/// * `db_connection` - &PgConnection | Reference to a database connection
-/// * `preferred_username` - String | The preferred_username that is being queried
-///
-/// # Tests
-///
-/// Tests for this function are in `tests/actor.rs`
-/// - get_local_actor_by_preferred_username()
-pub fn get_local_actor_by_preferred_username(
-    db_connection: &PgConnection,
-    _preferred_username: String,
-) -> Result<Actor, diesel::result::Error> {
-    match actors
-        .filter(preferred_username.eq(_preferred_username))
-        .filter(local.eq(true))
-        .limit(1)
-        .first::<QueryActor>(db_connection)
-    {
-        Ok(actor) => Ok(serialize_actor(actor)),
+        Ok(actor) => Ok(get_actor_followees(db_connection, &actor.actor_uri)
+            .unwrap_or_else(|_| vec![])
+            .len()),
         Err(e) => Err(e),
     }
 }
@@ -366,4 +245,167 @@ pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor) {
         .set(followers.eq(&actor.followers))
         .execute(db_connection)
         .expect("Error updating followers");
+}
+
+pub fn get_actor_by_acct(
+    db_connection: &PgConnection,
+    acct: String,
+) -> Result<Actor, diesel::result::Error> {
+    if acct.contains("@") {
+        let acct_split = acct.split('@');
+        let acct_vec = acct_split.collect::<Vec<&str>>();
+
+        match sql_query(format!("SELECT * FROM actors WHERE preferred_username = '{username}' AND actor_uri LIKE '%{uri}/%' LIMIT 1;", username=acct_vec[0], uri=acct_vec[1]))
+             .clone()
+             .load::<QueryActor>(db_connection)
+         {
+             Ok(actor) => {
+                 if !actor.is_empty()
+                 {
+                     let new_actor = std::borrow::ToOwned::to_owned(&actor[0]);
+                     Ok(serialize_actor(new_actor))
+                 } else { Err(diesel::result::Error::NotFound) }
+             },
+             Err(e) => Err(e),
+         }
+    } else {
+        get_local_actor_by_preferred_username(&db_connection, acct)
+    }
+}
+
+pub fn get_actor_by_id(
+    db_connection: &PgConnection,
+    _id: i64,
+) -> Result<Actor, diesel::result::Error> {
+    match actors
+        .filter(id.eq(_id))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn get_actor_by_uri(
+    db_connection: &PgConnection,
+    _actor_uri: &str,
+) -> Result<Actor, diesel::result::Error> {
+    match actors
+        .filter(actor_uri.eq(_actor_uri))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn get_actor_followees(
+    db_connection: &PgConnection,
+    _actor_uri: &str,
+) -> Result<Vec<Actor>, diesel::result::Error> {
+    match sql_query(format!(
+        "WITH actor \
+        AS ( SELECT id, email, password, actor_uri, username, preferred_username, summary, inbox, icon, keys, created, modified, local, jsonb_array_elements(followers->'activitypub') \
+        AS followers FROM actors) \
+        SELECT * FROM actor \
+        WHERE (followers->>'href') = '{uri}';",
+        uri = _actor_uri
+    ))
+        .load::<QueryActor>(db_connection)
+        {
+            Ok(actor_vec) => {
+                let mut followings: Vec<Actor> = Vec::new();
+
+                for actor in actor_vec {
+                    followings.push(serialize_actor(actor));
+                }
+
+                return Ok(followings);
+            },
+            Err(e) => Err(e),
+        }
+}
+
+pub fn get_actor_followees_uri(
+    db_connection: &PgConnection,
+    _actor_uri: &str,
+) -> Result<Vec<String>, diesel::result::Error> {
+    match sql_query(format!(
+        "WITH actor \
+        AS ( SELECT id, email, password, actor_uri, username, preferred_username, summary, inbox, icon, keys, created, modified, local, jsonb_array_elements(followers->'activitypub') \
+        AS followers FROM actors) \
+        SELECT * FROM actor \
+        WHERE (followers->>'href') = '{uri}';",
+        uri = _actor_uri
+    ))
+        .load::<QueryActor>(db_connection)
+        {
+            Ok(actor_vec) => {
+                let mut followings: Vec<String> = Vec::new();
+
+                for actor in actor_vec {
+                    followings.push(actor.actor_uri);
+                }
+
+                return Ok(followings);
+            },
+            Err(e) => Err(e),
+        }
+}
+
+/// Runs a database query based on a local actor's preferred_username, returns either
+/// an actor::Actor or a diesel::result::Error
+///
+/// # Parameters
+///
+/// * `db_connection` - &PgConnection | Reference to a database connection
+/// * `preferred_username` - String | The preferred_username that is being queried
+///
+/// # Tests
+///
+/// Tests for this function are in `tests/actor.rs`
+/// - get_local_actor_by_preferred_username()
+pub fn get_local_actor_by_preferred_username(
+    db_connection: &PgConnection,
+    _preferred_username: String,
+) -> Result<Actor, diesel::result::Error> {
+    match actors
+        .filter(preferred_username.eq(_preferred_username))
+        .filter(local.eq(true))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => Ok(serialize_actor(actor)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn is_actor_followed_by(
+    db_connection: &PgConnection,
+    actor: &Actor,
+    followee: &str,
+) -> Result<bool, diesel::result::Error> {
+    match actors
+        .filter(actor_uri.eq(&actor.actor_uri))
+        .limit(1)
+        .first::<QueryActor>(db_connection)
+    {
+        Ok(actor) => match actor.followers["activitypub"].as_array() {
+            Some(follows) => {
+                let mut follow_exists: bool = false;
+
+                for follow in follows {
+                    if follow["href"].as_str() == Some(followee) {
+                        follow_exists = true;
+                    }
+                }
+
+                Ok(follow_exists)
+            }
+            None => Ok(false),
+        },
+        Err(e) => Err(e),
+    }
 }
