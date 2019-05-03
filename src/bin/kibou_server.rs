@@ -15,6 +15,10 @@ fn main() {
                 .unwrap(),
         );
 
+    unsafe {
+        kibou::raito_fe::BYPASS_API = &true;
+    }
+
     // Launching Rocket with our own environment config
     rocket_app(rocket_config.unwrap()).launch();
 }

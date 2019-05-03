@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+    <div id="wrapper">
+        <div id="user-menu">
+            <ul>
+                <li><a href="/timeline/global">Timeline</a></li>
+                <li><a href="/about">About</a></li>
+            </ul>
+        </div>
+        <div id="side-menu">
+            <div class="header">Latest activities</div>
+            <ul><li><center>No activities yet ...</center></li></ul>
+        </div>
+        <div id="timeline">
+            {% block router %} {% endblock router %}
+        </div>
+    </div>
+</body>
+<style>
+{{stylesheet | safe}}
+</style>
+
+</html>

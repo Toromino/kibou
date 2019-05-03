@@ -6,9 +6,7 @@ use chrono::Utc;
 use database;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
-use openssl::rsa::Rsa;
 use openssl::sign::Verifier;
-use pem::Pem;
 use serde_json;
 use tests::utils::create_local_test_actor;
 use tests::utils::create_remote_test_actor;
@@ -113,7 +111,7 @@ fn get_actor_by_acct() {
 #[test]
 fn get_actor_by_uri() {
     let database = database::establish_connection();
-    let mut test_actor = create_local_test_actor("11c116b1-818c-4c07-aac7-26debc450d0b");
+    let test_actor = create_local_test_actor("11c116b1-818c-4c07-aac7-26debc450d0b");
     let test_actor_id = test_actor.id;
 
     match actor::get_actor_by_uri(&database, &test_actor.actor_uri) {
@@ -151,7 +149,7 @@ fn get_local_actor_by_preferred_username() {
 #[test]
 fn create_remote_actor() {
     let database = database::establish_connection();
-    let mut test_actor = create_remote_test_actor("6c85897a-d420-4e23-b5c8-7d6eb4ea834f");
+    let test_actor = create_remote_test_actor("6c85897a-d420-4e23-b5c8-7d6eb4ea834f");
     let email = test_actor.email.clone();
     let password = test_actor.password.clone();
     let actor_uri = test_actor.actor_uri.clone();
@@ -181,7 +179,7 @@ fn create_remote_actor() {
 #[test]
 fn delete_remote_actor() {
     let database = database::establish_connection();
-    let mut test_actor = create_remote_test_actor("3e1218d3-f735-4a50-b610-52c6f64445ee");
+    let test_actor = create_remote_test_actor("3e1218d3-f735-4a50-b610-52c6f64445ee");
     let actor_uri = test_actor.actor_uri.clone();
     delete_test_actor(test_actor);
 
@@ -254,7 +252,7 @@ fn create_actor_with_optional_values() {
 #[test]
 fn create_local_actor() {
     let database = database::establish_connection();
-    let mut test_actor = create_local_test_actor("efdd9c02-2887-47a6-a2a7-97e8cb533a7c");
+    let test_actor = create_local_test_actor("efdd9c02-2887-47a6-a2a7-97e8cb533a7c");
 
     let email = test_actor.email.clone();
     let password = test_actor.password.clone();

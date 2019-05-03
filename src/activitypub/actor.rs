@@ -13,7 +13,7 @@ pub struct Actor {
     // Properties according to
     // - https://www.w3.org/TR/activitypub/#actor-objects
     // - https://www.w3.org/TR/activitystreams-core/#actors
-    #[serde(rename = "@context")]
+    #[serde(rename = "@context", skip_serializing_if = "Option::is_none")]
     pub context: Option<Vec<serde_json::Value>>,
     #[serde(rename = "type")]
     pub _type: String,

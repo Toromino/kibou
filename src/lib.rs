@@ -6,6 +6,8 @@ extern crate bcrypt;
 extern crate chrono;
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate lazy_static;
 extern crate openssl;
 extern crate pem;
 extern crate regex;
@@ -21,12 +23,14 @@ extern crate uuid;
 mod activity;
 mod activitypub;
 pub mod actor;
+mod cache;
 pub mod database;
 pub mod env;
 mod html;
 mod kibou_api;
 mod mastodon_api;
 mod oauth;
+pub mod raito_fe;
 mod tests;
 mod timeline;
 mod web_handler;
@@ -48,14 +52,19 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
             "/",
             routes![
                 mastodon_api::routes::account,
+                mastodon_api::routes::account_follow,
+                mastodon_api::routes::account_statuses,
+                mastodon_api::routes::account_unfollow,
                 mastodon_api::routes::account_verify_credentials,
                 mastodon_api::routes::application,
                 mastodon_api::routes::home_timeline,
                 mastodon_api::routes::instance,
                 mastodon_api::routes::status,
+                mastodon_api::routes::status_context,
                 mastodon_api::routes::status_post,
                 mastodon_api::routes::public_timeline,
                 mastodon_api::routes::options_account,
+                mastodon_api::routes::options_account_statuses,
                 mastodon_api::routes::options_account_verify_credentials,
                 mastodon_api::routes::options_home_timeline,
                 mastodon_api::routes::options_instance,
@@ -63,6 +72,7 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
                 mastodon_api::routes::options_status
             ],
         )
+        .mount("/", raito_fe::get_routes())
         .mount(
             "/",
             routes![
@@ -79,6 +89,10 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
                 well_known::nodeinfo::nodeinfo_v2_1,
                 well_known::webfinger::webfinger
             ],
+        )
+        .mount(
+            "/static",
+            rocket_contrib::serve::StaticFiles::from("static"),
         )
         .attach(rocket_contrib::templates::Template::fairing())
 }

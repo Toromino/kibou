@@ -10,11 +10,24 @@ use rocket::http::Status;
 use rocket::request::{self, FromRequest, Request};
 use rocket::response::{self, Responder, Response};
 use rocket::Outcome;
+use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use web_handler::http_signatures::HTTPSignature;
 
 pub struct ActivitypubMediatype(bool);
 pub struct ActivitystreamsResponse(String);
+
+// ActivityStreams2/AcitivityPub properties are expressed in CamelCase
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
+pub struct Attachment {
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub content: Option<String>,
+    pub url: String,
+    pub name: Option<String>,
+    pub mediaType: Option<String>,
+}
 
 impl<'a, 'r> FromRequest<'a, 'r> for ActivitypubMediatype {
     type Error = ();
