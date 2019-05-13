@@ -20,7 +20,7 @@ pub fn establish_connection() -> PgConnection {
 }
 
 pub fn runtime_escape(value: &str) -> String {
-    let escape_regex = Regex::new(r"[a-zA-Z0-9_]").unwrap();
+    let escape_regex = Regex::new(r"[a-zA-Z0-9_:\\.\-\\/]").unwrap();
     value
         .chars()
         .filter(|&c| escape_regex.is_match(&c.to_string()))

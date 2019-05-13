@@ -79,7 +79,7 @@ pub fn get_public_timeline(
          {local} \
          {id} \
          LIMIT {limit};",
-        local = runtime_escape(&local),
+        local = local,
         id = get_id_order_query(max_id, since_id, min_id),
         limit = runtime_escape(&limit.to_string())
     ))
