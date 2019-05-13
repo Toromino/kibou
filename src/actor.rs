@@ -1,6 +1,7 @@
 use bcrypt;
 use chrono::NaiveDateTime;
 use database::models::QueryActor;
+use database::runtime_escape;
 use database::schema::actors;
 use database::schema::actors::dsl::*;
 use diesel::pg::PgConnection;
@@ -311,46 +312,11 @@ pub fn get_actor_followees(
         AS followers FROM actors) \
         SELECT * FROM actor \
         WHERE (followers->>'href') = '{uri}';",
-        uri = _actor_uri
+        uri = runtime_escape(_actor_uri)
     ))
         .load::<QueryActor>(db_connection)
         {
-            Ok(actor_vec) => {
-                let mut followings: Vec<Actor> = Vec::new();
-
-                for actor in actor_vec {
-                    followings.push(serialize_actor(actor));
-                }
-
-                return Ok(followings);
-            },
-            Err(e) => Err(e),
-        }
-}
-
-pub fn get_actor_followees_uri(
-    db_connection: &PgConnection,
-    _actor_uri: &str,
-) -> Result<Vec<String>, diesel::result::Error> {
-    match sql_query(format!(
-        "WITH actor \
-        AS ( SELECT id, email, password, actor_uri, username, preferred_username, summary, inbox, icon, keys, created, modified, local, jsonb_array_elements(followers->'activitypub') \
-        AS followers FROM actors) \
-        SELECT * FROM actor \
-        WHERE (followers->>'href') = '{uri}';",
-        uri = _actor_uri
-    ))
-        .load::<QueryActor>(db_connection)
-        {
-            Ok(actor_vec) => {
-                let mut followings: Vec<String> = Vec::new();
-
-                for actor in actor_vec {
-                    followings.push(actor.actor_uri);
-                }
-
-                return Ok(followings);
-            },
+            Ok(actor_vec) => Ok(actor_vec.iter().map(|actor| serialize_actor(actor.to_owned())).collect()),
             Err(e) => Err(e),
         }
 }
