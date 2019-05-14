@@ -4,7 +4,9 @@ use activitypub::controller;
 use activitypub::ActivitypubMediatype;
 use activitypub::ActivitystreamsResponse;
 use activitypub::HTTPSignature;
+use rocket::Data;
 use serde_json;
+use std::io::Read;
 
 #[get("/activities/<id>")]
 pub fn activity(media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
@@ -17,17 +19,23 @@ pub fn actor(media_type: ActivitypubMediatype, handle: String) -> Activitystream
 }
 
 #[post("/actors/<id>/inbox", data = "<activity>")]
-pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
+pub fn actor_inbox(id: String, activity: Data, _signature: HTTPSignature) {
+    let mut data_buffer = Vec::new();
+    activity.open().read(&mut data_buffer);
     controller::prepare_incoming(
-        serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
+        serde_json::from_str(&String::from_utf8(data_buffer).unwrap())
+            .unwrap_or_else(|_| serde_json::json!({})),
         _signature,
     );
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(activity: String, _signature: HTTPSignature) {
+pub fn inbox(activity: Data, _signature: HTTPSignature) {
+    let mut data_buffer = Vec::new();
+    activity.open().read(&mut data_buffer);
     controller::prepare_incoming(
-        serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
+        serde_json::from_str(&String::from_utf8(data_buffer).unwrap())
+            .unwrap_or_else(|_| serde_json::json!({})),
         _signature,
     );
 }
