@@ -3,6 +3,8 @@
 
 extern crate base64;
 extern crate bcrypt;
+#[macro_use]
+extern crate cached;
 extern crate chrono;
 #[macro_use]
 extern crate diesel;
@@ -23,7 +25,6 @@ extern crate uuid;
 mod activity;
 mod activitypub;
 pub mod actor;
-mod cache;
 pub mod database;
 pub mod env;
 mod html;

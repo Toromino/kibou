@@ -1,7 +1,6 @@
 pub mod controller;
 pub mod routes;
 
-use cache;
 use env;
 use rocket::request;
 use rocket::request::FromRequest;
@@ -200,15 +199,6 @@ impl<'a, 'r> FromRequest<'a, 'r> for AuthorizationHeader {
             return Outcome::Success(AuthorizationHeader(headers[0].to_string()));
         }
     }
-}
-
-lazy_static! {
-    static ref MASTODON_API_STATUS_CACHE: Mutex<cache::Cache> = {
-        Mutex::new(cache::Cache {
-            context: Box::new(HashMap::new()),
-            storage: Box::new(HashMap::new()),
-        })
-    };
 }
 
 pub fn get_instance_info() -> JsonValue {

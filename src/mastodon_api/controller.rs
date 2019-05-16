@@ -10,7 +10,6 @@ use env;
 use kibou_api;
 use mastodon_api::{
     Account, Attachment, HomeTimeline, PublicTimeline, Relationship, Source, Status, StatusForm,
-    MASTODON_API_STATUS_CACHE,
 };
 use oauth;
 use oauth::application::Application as OAuthApplication;
@@ -582,32 +581,27 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
     }
 }
 
-fn status_cached_by_id(id: i64) -> Result<Status, String> {
-    let mutex_lock = MASTODON_API_STATUS_CACHE.try_lock();
-    if let Ok(mut cache_mutex) = mutex_lock {
-        match cache_mutex.get(id) {
-            Some(status) => Ok(serde_json::from_slice(&status).unwrap()),
-            None => {
-                let database = database::establish_connection();
-                match activity::get_activity_by_id(&database, id) {
-                    Ok(activity) => {
-                        let serialized_json =
-                            serde_json::to_value(serialize_status(activity).unwrap()).unwrap();
-                        cache_mutex.store(
-                            id,
-                            serde_json::to_string(&serialized_json)
-                                .unwrap()
-                                .as_bytes()
-                                .to_vec(),
-                        );
-                        Ok(serde_json::from_value(serialized_json).unwrap())
-                    }
-                    Err(_) => Err(format!("Status not found: {}", &id)),
-                }
+cached! {
+    MASTODON_API_STATUS_CACHE;
+fn status_by_id(id: i64) -> Result<serde_json::Value, String> = {
+    let database = database::establish_connection();
+    match activity::get_activity_by_id(&database, id) {
+        Ok(activity) => {
+            match serialize_status(activity)
+            {
+                Ok(serialized_status) => Ok(serde_json::to_value(serialized_status).unwrap()),
+                Err(_) => Err(format!("Failed to serialize status:"))
             }
-        }
-    } else {
-        status_cached_by_id(id)
+            },
+        Err(_) => Err(format!("Status not found: {}", &id)),
+    }
+}
+}
+
+fn status_cached_by_id(id: i64) -> Result<Status, String> {
+    match status_by_id(id) {
+        Ok(status) => Ok(serde_json::from_value(status).unwrap()),
+        Err(e) => Err(e),
     }
 }
 
