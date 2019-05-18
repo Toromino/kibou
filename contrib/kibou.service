@@ -1,0 +1,19 @@
+[Unit]
+After=network.target postgresql.service
+Description=Kibou server
+
+[Service]
+; Replace the working directory and the executable
+; paths according to your Kibou installation
+; ------------------------------------------------
+WorkingDirectory=/srv/kibou
+ExecStart=/srv/kibou/target/debug/kibou_server
+; ------------------------------------------------
+
+ExecReload=/bin/kill $MAINPID
+KillMode=process
+Restart=on-failure
+User=kibou
+
+[Install]
+WantedBy=multi-user.target
