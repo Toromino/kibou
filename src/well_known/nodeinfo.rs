@@ -107,6 +107,15 @@ pub fn nodeinfo_v2_1() -> JsonValue {
     })
 }
 
+// Lists nodeinfo routes.
+pub fn get_routes() -> Vec<rocket::Route> {
+    routes![
+        nodeinfo,
+        nodeinfo_v2,
+        nodeinfo_v2_1,
+    ]
+}
+
 fn get_local_posts() -> usize {
     let database = database::establish_connection();
     count_local_ap_notes(&database).unwrap_or_else(|_| 0)
