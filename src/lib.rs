@@ -38,7 +38,7 @@ mod web_handler;
 mod well_known;
 
 pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
-    rocket::custom(config)
+    let mut app: rocket::Rocket = rocket::custom(config)
         .mount(
             "/",
             routes![
@@ -82,18 +82,29 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
                 oauth::routes::token
             ],
         )
-        .mount(
-            "/",
-            routes![
-                well_known::nodeinfo::nodeinfo,
-                well_known::nodeinfo::nodeinfo_v2,
-                well_known::nodeinfo::nodeinfo_v2_1,
-                well_known::webfinger::webfinger
-            ],
-        )
+        .mount("/", routes![well_known::webfinger::webfinger])
         .mount(
             "/static",
             rocket_contrib::serve::StaticFiles::from("static"),
         )
-        .attach(rocket_contrib::templates::Template::fairing())
+        .attach(rocket_contrib::templates::Template::fairing());
+
+    // Avoid mounting nodeinfo routes if the admin has disabled
+    // nodeinfo in the config file.
+    if should_mount_nodeinfo() {
+        app = app.mount("/", well_known::nodeinfo::get_routes());
+    }
+
+    app
+}
+
+// Returns whether nodeinfo routes should be mounted based
+// on the value of a configuration entry.
+fn should_mount_nodeinfo() -> bool {
+    let key = String::from("nodeinfo.enabled");
+    let value: String = env::get_value(key).to_lowercase();
+
+    // Nodeinfo will only be disabled if its configuration value is
+    // explicitly set to false, "false", or any uppercase equivalent.
+    value.as_str() != "false"
 }
