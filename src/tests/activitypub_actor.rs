@@ -105,3 +105,52 @@ fn remove_follow() {
 
     assert_eq!(follow_data.len(), 0);
 }
+
+// This is a special case which was caused by Kibou actors and prevented remote actors from getting
+// fetched. It occured when "url" in the "icon" attribute was set to 'null'.
+//
+// Example:
+//
+// "icon": {
+//      "type": "Image",
+//      "url": null
+// }
+
+#[test]
+fn create_internal_actor_with_empty_icon_url() {
+    let database = database::establish_connection();
+    let actor = actor::Actor {
+        context: None,
+        _type: String::from("Person"),
+        id: String::from("https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9"),
+        summary: None,
+        following: String::from(
+            "https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9/following",
+        ),
+        followers: String::from(
+            "https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9/followers",
+        ),
+        inbox: String::from(
+            "https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9/inbox",
+        ),
+        outbox: String::from(
+            "https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9/outbox",
+        ),
+        preferredUsername: String::from("277a152b-0575-437e-add5-18c2aa5585c9"),
+        name: None,
+        publicKey: serde_json::json!({}),
+        url: String::from("https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9"),
+        icon: Some(serde_json::json!({"type": "Image", "url": null})),
+        endpoints: serde_json::json!({}),
+    };
+
+    internal_actor::create_actor(&database, &mut actor::create_internal_actor(actor));
+    let internal_actor = internal_actor::get_actor_by_uri(
+        &database,
+        "https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9",
+    );
+    let actor_exists = internal_actor.is_ok();
+
+    delete_test_actor(internal_actor.unwrap());
+    assert_eq!(actor_exists, true);
+}
