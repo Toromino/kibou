@@ -27,6 +27,7 @@ pub struct Actor {
     pub name: Option<String>,
     pub publicKey: serde_json::Value,
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<serde_json::Value>,
     pub endpoints: serde_json::Value,
 }
@@ -97,6 +98,11 @@ pub fn get_json_by_preferred_username(preferred_username: String) -> serde_json:
 }
 
 pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor {
+    let icon = match &actor.icon {
+        Some(url) => Some(serde_json::json!({"url": url, "type": "Image"})),
+        None => None,
+    };
+
     Actor {
         context: Some(vec![
             serde_json::json!("https://www.w3.org/ns/activitystreams"),
@@ -117,8 +123,7 @@ pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor {
             "publicKeyPem": actor.keys["public"].clone()
         }),
         url: actor.actor_uri.clone(),
-        icon: Some(serde_json::json!({"url":actor.icon,
-        "type": "Image"})),
+        icon: icon,
         endpoints: serde_json::json!({
             "sharedInbox":
                 format!(
@@ -130,6 +135,16 @@ pub fn serialize_from_internal_actor(actor: &actor::Actor) -> Actor {
     }
 }
 
+/// Creates an internal actor based on the ActivityPub actor
+///
+/// # Paramters
+///
+/// * `ap_actor` - Actor | An ActivityPub actor
+///
+/// # Test
+///
+/// Test for this function are in `tests/activitypub_actor.rs`
+/// - create_internal_actor_with_empty_icon_url()
 pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor {
     let actor_inbox = if ap_actor.endpoints.get("sharedInbox").is_some() {
         Some(
@@ -142,10 +157,15 @@ pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor {
         Some(ap_actor.inbox)
     };
 
-    let actor_icon = if ap_actor.icon.is_some() {
-        Some(ap_actor.icon.unwrap()["url"].as_str().unwrap().to_string())
-    } else {
-        None
+    let actor_icon = match ap_actor.icon {
+        Some(icon) => {
+            if !icon["url"].is_null() {
+                Some(icon["url"].as_str().unwrap().to_string())
+            } else {
+                None
+            }
+        }
+        None => None,
     };
 
     actor::Actor {
