@@ -250,7 +250,7 @@ pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor) {
 
 pub fn get_actor_by_acct(
     db_connection: &PgConnection,
-    acct: String,
+    acct: &str,
 ) -> Result<Actor, diesel::result::Error> {
     if acct.contains("@") {
         let acct_split = acct.split('@');
@@ -335,7 +335,7 @@ pub fn get_actor_followees(
 /// - get_local_actor_by_preferred_username()
 pub fn get_local_actor_by_preferred_username(
     db_connection: &PgConnection,
-    _preferred_username: String,
+    _preferred_username: &str,
 ) -> Result<Actor, diesel::result::Error> {
     match actors
         .filter(preferred_username.eq(_preferred_username))

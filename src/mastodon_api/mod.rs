@@ -9,8 +9,6 @@ use rocket::Outcome;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::HashMap;
-use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize)]
 pub struct Account {
@@ -60,7 +58,7 @@ pub struct Attachment {
 }
 
 #[derive(Debug)]
-pub struct AuthorizationHeader(String);
+pub struct AuthorizationHeader(pub String);
 
 #[derive(Serialize, Deserialize)]
 pub struct Emoji {
@@ -110,6 +108,18 @@ pub struct PublicTimeline {
     pub since_id: Option<i64>,
     pub min_id: Option<i64>,
     pub limit: Option<i64>,
+}
+
+#[derive(FromForm)]
+pub struct RegistrationForm {
+    // Properties acctording to
+    // - https://docs.joinmastodon.org/api/rest/accounts/#post-api-v1-accounts
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    // Optional values in Kibou, as they're not used by the backend (yet?)
+    pub agreement: Option<String>,
+    pub locale: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

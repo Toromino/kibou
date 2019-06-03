@@ -1,0 +1,21 @@
+{% extends "raito_fe/index" %}
+
+{% block router %}
+<div class="generic-container" id="settings">
+<h2>Settings</h2>
+<form>
+<h3>General</h3>
+    <table>
+    <tr>
+    <th><button>Minimal</button></th>
+    <th><button>Static</button></th>
+    <th><button>Dynamic</button></th>
+    </tr>
+    <tr>
+    <td>Minimal mode disables styling and saves bandwith.</td>
+    <td>Static mode is the default setting.</td>
+    <td>Dynamic mode enables JavaScript (auto-updating timelines).</td>
+    </table>
+</form>
+</div>
+{% endblock router %}

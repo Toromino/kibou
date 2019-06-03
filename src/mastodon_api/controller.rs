@@ -4,16 +4,19 @@ use activitypub;
 use actor;
 use actor::get_actor_by_id;
 use actor::get_actor_by_uri;
+use chrono::Utc;
 use database;
 use diesel::PgConnection;
 use env;
 use kibou_api;
 use mastodon_api::{
-    Account, Attachment, HomeTimeline, PublicTimeline, Relationship, Source, Status, StatusForm,
+    Account, Attachment, HomeTimeline, PublicTimeline, RegistrationForm, Relationship, Source,
+    Status, StatusForm,
 };
 use oauth;
 use oauth::application::Application as OAuthApplication;
-use oauth::token::verify_token;
+use oauth::token::{verify_token, Token};
+use regex::Regex;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
 use timeline;
@@ -32,7 +35,7 @@ pub fn account_by_oauth_token(token: String) -> Result<Account, diesel::result::
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => Ok(serialize_account(actor, true)),
             Err(e) => Err(e),
         },
@@ -44,11 +47,56 @@ pub fn account_json_by_oauth_token(token: String) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => json!(serialize_account(actor, true)),
             Err(_) => json!({"error": "No user is associated to this token!"}),
         },
         Err(_) => json!({"error": "Token invalid!"}),
+    }
+}
+
+pub fn account_create_json(form: &RegistrationForm) -> JsonValue {
+    match account_create(form) {
+        Some(token) => serde_json::to_value(token).unwrap().into(),
+        None => json!({"error": "Account could not be created!"}),
+    }
+}
+
+pub fn account_create(form: &RegistrationForm) -> Option<Token> {
+    let email_regex = Regex::new(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").unwrap();
+    let username_regex = Regex::new(r"^[A-Za-z0-9_]{1,32}$").unwrap();
+    
+    if username_regex.is_match(&form.username) && email_regex.is_match(&form.email) {
+        let database = database::establish_connection();
+        let mut new_actor = actor::Actor {
+            id: 0,
+            email: Some(form.email.to_string()),
+            password: Some(form.password.to_string()),
+            actor_uri: format!(
+                "{base_scheme}://{base_domain}/actors/{username}",
+                base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+                base_domain = env::get_value(String::from("endpoint.base_domain")),
+                username = form.username
+            ),
+            username: Some(form.username.to_string()),
+            preferred_username: form.username.to_string(),
+            summary: None,
+            followers: serde_json::json!({"activitypub": []}),
+            inbox: None,
+            icon: None,
+            local: true,
+            keys: serde_json::json!({}),
+            created: Utc::now().naive_utc(),
+        };
+
+        actor::create_actor(&database, &mut new_actor);
+
+        match actor::get_local_actor_by_preferred_username(&database, &form.username) {
+            Ok(actor) => Some(oauth::token::create(&form.username)),
+            Err(_) => None,
+        }
+    } else {
+        return None;
     }
 }
 
@@ -109,7 +157,7 @@ pub fn follow(token: String, target_id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let followee = actor::get_actor_by_id(&database, target_id).unwrap();
 
@@ -148,7 +196,7 @@ pub fn relationships_by_token(token: String, ids: Vec<i64>) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let mut relationships: Vec<Relationship> = Vec::new();
                 let activitypub_followers: Vec<serde_json::Value> =
@@ -285,7 +333,7 @@ pub fn status_post(form: StatusForm, token: String) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let status_id = kibou_api::status_build(
                     actor.actor_uri,
@@ -294,7 +342,7 @@ pub fn status_post(form: StatusForm, token: String) -> JsonValue {
                     form.in_reply_to_id,
                 );
 
-                return json!(status_cached_by_id(status_id.parse::<i64>().unwrap()));
+                return json!(status_cached_by_id(status_id));
             }
             Err(_) => json!({"error": "Account not found"}),
         },
@@ -306,7 +354,7 @@ pub fn unfollow(token: String, target_id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let followee = actor::get_actor_by_id(&database, target_id).unwrap();
 
@@ -381,7 +429,7 @@ fn home_timeline(
     let database = database::establish_connection();
 
     match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, token.actor) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 match get_home_timeline(
                     &database,

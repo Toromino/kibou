@@ -1,5 +1,6 @@
 {% extends "raito_fe/index" %}
 {% block router %}
+{% if minimalmode_enabled == "false" %}
 <div id="account-header" style="background-image: url({{account_header}});">
     <div id="account-header-shadow"></div>
     <img src="{{account_avatar}}" id="account-profile-picture">
@@ -24,14 +25,28 @@
         </ul>
     </div>
 </div>
-
 <div id="account-bio">
     <div id="account-bio-inner">
         {{account_note | safe}}
     </div>
 </div>
-
 <div id="account-timeline">
     {{account_timeline | safe}}
 </div>
+{% else %}
+{{account_display_name}}
+<br>{{account_acct}}
+<ul>
+<li><a href="">Follow</a></li>
+</ul>
+<p>
+Statuses: {{account_statuses_count}}
+<br>Following: {{account_following_count}}
+<br>Followers: {{account_followers_count}}
+</p>
+<p>Bio:<br>
+{{account_note | safe}}
+</p>
+<hr>{{account_timeline | safe}}
+{% endif %}
 {% endblock router %}

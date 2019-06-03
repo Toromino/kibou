@@ -53,7 +53,9 @@ pub fn get_application_by_client_id(
 
 pub fn create(db_connection: &PgConnection, mut app: Application) -> Application {
     let mut big_num: BigNum = BigNum::new().unwrap();
-    big_num.rand(256, MsbOption::MAYBE_ZERO, true);
+    big_num
+        .rand(256, MsbOption::MAYBE_ZERO, true)
+        .expect("Error generating client secret");
     app.client_id = Uuid::new_v4().to_string();
     app.client_secret = big_num.to_hex_str().unwrap().to_string();
 

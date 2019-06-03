@@ -1,10 +1,12 @@
-use mastodon_api::routes;
-use mastodon_api::Account;
-use mastodon_api::Status;
-use raito_fe::BYPASS_API;
-use raito_fe::MASTODON_API_BASE_URI;
-use reqwest::header::HeaderValue;
-use reqwest::header::ACCEPT;
+use actor;
+use database;
+use mastodon_api::{
+    controller, routes, Account, AuthorizationHeader, RegistrationForm, Status, StatusForm,
+};
+use oauth;
+use raito_fe::{LoginForm, BYPASS_API, MASTODON_API_BASE_URI};
+use reqwest::header::{HeaderValue, ACCEPT};
+use rocket::request::LenientForm;
 
 pub fn get_account(id: String) -> Result<Account, ()> {
     if unsafe { BYPASS_API } == &true {
@@ -70,6 +72,26 @@ pub fn get_status_context(id: String) -> Result<serde_json::Value, ()> {
     }
 }
 
+pub fn home_timeline(token: &str) -> Result<Vec<Status>, ()> {
+    if unsafe { BYPASS_API } == &true {
+        match serde_json::from_str(
+            &routes::home_timeline(
+                None,
+                None,
+                None,
+                None,
+                AuthorizationHeader(token.to_string()),
+            )
+            .to_string(),
+        ) {
+            Ok(timeline) => Ok(timeline),
+            Err(_) => Err(()),
+        }
+    } else {
+        Err(())
+    }
+}
+
 pub fn get_public_timeline(local: bool) -> Result<Vec<Status>, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
@@ -124,6 +146,46 @@ pub fn get_user_timeline(id: String) -> Result<Vec<Status>, ()> {
             },
             Err(_) => Err(()),
         }
+    }
+}
+
+// This approach is not optimal, as it skips the internal OAuth flow and should definitely be
+// reworked. From a security perspective, this approach is safe, as the backend has no reason not
+// to trust the internal front-end. On the other hand, this approach does not work if Raito-FE
+// is run in standalone.
+//
+// TODO: Rework
+pub fn login(form: LenientForm<LoginForm>) -> Option<String> {
+    let db_connection = database::establish_connection();
+
+    if unsafe { BYPASS_API } == &true {
+        let form = form.into_inner();
+        match actor::authorize(&db_connection, &form.username, form.password) {
+            Ok(true) => Some(oauth::token::create(&form.username).access_token),
+            Ok(false) => None,
+            Err(_) => None,
+        }
+    } else {
+        None
+    }
+}
+
+pub fn post_status(form: LenientForm<StatusForm>, token: &str) {
+    if unsafe { BYPASS_API } == &true {
+        routes::status_post(form, AuthorizationHeader(format!("Bearer: {}", token)));
+    }
+}
+
+// TODO: Rework
+// (same as in line 129)
+pub fn register(form: LenientForm<RegistrationForm>) -> Option<String> {
+    if unsafe { BYPASS_API } == &true {
+        match controller::account_create(&form.into_inner()) {
+            Some(token) => Some(token.access_token),
+            None => None,
+        }
+    } else {
+        None
     }
 }
 

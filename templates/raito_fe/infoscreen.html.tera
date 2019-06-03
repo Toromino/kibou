@@ -1,0 +1,34 @@
+{% extends "raito_fe/index" %}
+
+{% block router %}
+<div class="generic-container">
+<h2>Welcome to <a href="https://git.cybre.club/kibouproject/kibou">Kibou</a>!</h2>
+<p>Kibou is a lightweight federated social networking server. This is one of many
+servers among the Fediverse, an interconnected decentralized social network.</p>
+<p>Kibou is written in the <a href="https://www.rust-lang.org/">Rust</a> programming language and is built upon components such as
+<a href="https://diesel.rs">Diesel</a> and <a href="https://rocket.rs">Rocket</a>. It also implements Mastodon's REST API,
+which means that you can also use Mastodon applications with Kibou.
+<br>
+<a href="http://kibou.social">Learn more</a></p>
+<img src="/static/assets/mascot.png" style="float:right; height: 200px; position: relative; margin-top: 30px;">
+<div id="registration-form">
+<h3>Create an account</h3>
+<form method="post" action="/register">
+    <label>E-Mail</label>
+    <br>
+    <input type="text" name="email">
+    <br>
+    <label>Username</label>
+    <br>
+    <input type="text" name="username">
+    <br>
+    <label>Password</label>
+    <br>
+    <input type="password" name="password">
+    <br >
+    <input type="submit">
+    <br />
+</form>
+</div>
+</div>
+{% endblock router %}

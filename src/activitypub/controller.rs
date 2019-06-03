@@ -268,7 +268,7 @@ fn activity_build(
 
     insert_activity(
         &database,
-        create_internal_activity(serde_json::json!(&new_activity), new_activity.actor.clone()),
+        create_internal_activity(&serde_json::json!(&new_activity), &new_activity.actor),
     );
     new_activity
 }
@@ -361,27 +361,21 @@ fn handle_activity(activity: serde_json::Value) {
                             Err(e) => eprintln!("{}", e),
                         }
 
-                        insert_activity(
-                            &database,
-                            create_internal_activity(activity.clone(), actor.clone()),
-                        );
+                        insert_activity(&database, create_internal_activity(&activity, &actor));
                     }
                     &_ => (),
                 },
                 Err(e) => eprintln!("Unknown object mentioned in `Accept` activity {}", e),
             }
 
-            insert_activity(
-                &database,
-                create_internal_activity(activity.to_owned(), actor),
-            );
+            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Announce") => {
             let object_id = activity["object"].as_str().unwrap().to_string();
             thread::spawn(move || {
                 fetch_object_by_id(object_id);
             });
-            insert_activity(&database, create_internal_activity(activity, actor));
+            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Create") => {
             if activity["object"].get("inReplyTo").is_some() {
@@ -396,7 +390,7 @@ fn handle_activity(activity: serde_json::Value) {
                 }
             }
 
-            insert_activity(&database, create_internal_activity(activity, actor));
+            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Follow") => {
             let remote_account = get_actor_by_uri(&database, &actor).unwrap();
@@ -446,14 +440,14 @@ fn handle_activity(activity: serde_json::Value) {
                 Err(_) => (),
             }
 
-            insert_activity(&database, create_internal_activity(activity, actor));
+            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Like") => {
             let object_id = activity["object"].as_str().unwrap().to_string();
             thread::spawn(move || {
                 fetch_object_by_id(object_id);
             });
-            insert_activity(&database, create_internal_activity(activity, actor));
+            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Undo") => {
             let remote_account = get_actor_by_uri(&database, &actor).unwrap();
@@ -473,10 +467,7 @@ fn handle_activity(activity: serde_json::Value) {
                         Err(_) => (),
                     }
 
-                    insert_activity(
-                        &database,
-                        create_internal_activity(activity.clone(), actor.clone()),
-                    );
+                    insert_activity(&database, create_internal_activity(&activity, &actor));
                 }
                 &_ => (),
             }

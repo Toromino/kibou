@@ -44,7 +44,7 @@ pub fn status_build(
     mut content: String,
     visibility: &str,
     in_reply_to: Option<String>,
-) -> String {
+) -> i64 {
     let database = database::establish_connection();
     let serialized_actor: Actor = get_actor_by_uri(&database, &actor).unwrap();
 
@@ -111,7 +111,9 @@ pub fn status_build(
         inboxes,
     );
 
-    return activitypub_activity_create.id;
+    return get_ap_activity_by_id(&database, &activitypub_activity_create.id)
+        .unwrap()
+        .id;
 }
 
 pub fn unfollow(actor: String, object: String) {
@@ -202,7 +204,7 @@ fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json:
     for mention in acct_regex.captures_iter(&content) {
         match get_actor_by_acct(
             &database,
-            mention.get(0).unwrap().as_str().to_string().split_off(1),
+            &mention.get(0).unwrap().as_str().to_string().split_off(1),
         ) {
             Ok(actor) => {
                 let tag: Tag = Tag {

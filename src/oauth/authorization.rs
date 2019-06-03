@@ -1,5 +1,6 @@
 use actor;
 use chrono::prelude::*;
+use chrono::Duration;
 use chrono::NaiveDateTime;
 use database;
 use database::models::QueryOAuthAuthorization;
@@ -106,20 +107,16 @@ pub fn authorize_application(_actor: String, application_id: i64) -> String {
     let db_connection = database::establish_connection();
     let mut hex_num: BigNum = BigNum::new().unwrap();
     let utc_time: chrono::DateTime<Utc> = Utc::now();
-    hex_num.rand(256, MsbOption::MAYBE_ZERO, true);
+    let expiration_date: chrono::DateTime<Utc> = utc_time + Duration::days(30);
+    hex_num
+        .rand(256, MsbOption::MAYBE_ZERO, true)
+        .expect("Error generating authorization code");
 
     let new_authorization = Authorization {
         application: application_id,
         actor: _actor,
         code: hex_num.to_string(),
-        valid_until: chrono::NaiveDate::from_ymd(
-            utc_time.year(),
-            utc_time.month() + 1,
-            utc_time.day(),
-        )
-        .and_hms(utc_time.hour(), utc_time.minute(), utc_time.second())
-        .timestamp()
-        .to_string(),
+        valid_until: expiration_date.timestamp().to_string(),
     };
 
     insert(&db_connection, &new_authorization);

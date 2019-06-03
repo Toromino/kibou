@@ -8,8 +8,6 @@ extern crate cached;
 extern crate chrono;
 #[macro_use]
 extern crate diesel;
-#[macro_use]
-extern crate lazy_static;
 extern crate openssl;
 extern crate pem;
 extern crate regex;
