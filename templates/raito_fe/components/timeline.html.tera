@@ -1,3 +1,3 @@
 <div id="inner-timeline">
-    {{ statuses | safe }}
+{% if javascript_enabled == "false" %}{{ statuses | safe }}{% endif %}
 </div>

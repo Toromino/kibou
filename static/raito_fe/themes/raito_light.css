@@ -207,8 +207,7 @@ textarea {
 }
 
 #post-form {
-	display: none;
-	background: var(--focus-color);
+	display: block;
 	padding: 5px 5px 5px 5px;
 	border-color: var(--background-color);
 	border-bottom-style: solid;
@@ -222,7 +221,8 @@ textarea {
 
 #post-form textarea {
 	min-height: 50px;
-	width: calc(100% - 5px);
+	resize: vertical;
+	width: calc(100%);
 	margin: 0;
 }
 
@@ -239,6 +239,18 @@ textarea {
 #user-menu ul {
 	margin: 0;
 	padding: 0;
+}
+
+#user-menu ul ul {
+	background: var(--background-color);
+	display: none;
+	position: absolute;
+	top: 100%;
+	left: 0;
+}
+
+#user-menu ul li:hover > ul {
+	display: block;
 }
 
 #user-menu li {
@@ -265,18 +277,30 @@ textarea {
 	margin-right: 5px;
 }
 
-#user-menu li li {
-	float: none;
-}
-
 #user-menu a {
 	color: var(--top-bar-text-color);
 	text-decoration: none;
 }
 
-#settings {
-	font-size: 16px;
-	padding: 4px 4px 4px 4px;
+#settings button {
+	background: var(--focus-color);
+	color: #FFFFFF;
+	font-size: 32px;
+	height: 70px;
+	width: 170px;
+}
+
+#settings table {
+	width: 100%;
+}
+
+#settings td {
+	width: 100px;
+	text-align: center;
+}
+
+#settings ul {
+	list-style: none;
 }
 
 #side-menu {
@@ -337,17 +361,17 @@ textarea {
 	text-decoration: none;
 }
 
-#text-container {
+.generic-container {
 	background: var(--background-color);
 	padding: 1px 20px 4px 20px;
 }
 
-#text-container h2 {
+.generic-container h2 {
 	border-bottom-color: var(--focus-color);
 	border-bottom-style: solid;
 }
 
-#text-container a {
+.generic-container a {
 	color: var(--link-color);
 	text-decoration: none;
 }
@@ -397,6 +421,23 @@ textarea {
 	-webkit-transform: rotate(45deg);
 }
 
+.mention {
+	background: var(--button-background-color) !important;
+	border-radius: 16px;
+	color: var(--button-text-color) !important;
+	padding: 2px 4px 2px 4px;
+}
+
+.panel {
+	background: var(--background-color);
+	padding: 1px 20px 4px 20px;
+}
+
+.panel h2 {
+	border-bottom-color: var(--focus-color);
+	border-bottom-style: solid;
+}
+
 .status {
 	background: var(--foreground-color);
 	width: 100%;
@@ -434,6 +475,8 @@ textarea {
 	color: red;
 	cursor: pointer;
 }
+
+.status-reply-button { color: inherit; text-decoration: inherit; }
 
 .status-reply-button:hover {
 	color: var(--link-color);
@@ -571,6 +614,14 @@ textarea {
 	border-bottom-color: var(--link-color);
 	border-bottom-style: solid;
 	border-bottom-width: 2px;
+}
+
+.timeline-menu-compose {
+	background: var(--button-background-color);
+}
+
+.timeline-menu-compose a {
+	color: var(--button-text-color) !important;
 }
 
 #timeline-menu a {

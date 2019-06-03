@@ -29,10 +29,7 @@ fn get_ap_activity_by_id() {
 
     activity::insert_activity(
         &database,
-        ap_activity::create_internal_activity(
-            test_activity,
-            String::from("https://example.tld/alyssa"),
-        ),
+        ap_activity::create_internal_activity(&test_activity, "https://example.tld/alyssa"),
     );
     let result = activity::get_ap_activity_by_id(
         &database,
@@ -59,8 +56,8 @@ fn get_ap_object_by_id() {
     activity::insert_activity(
         &database,
         ap_activity::create_internal_activity(
-            valid_remote_dummy_create_activity(test_object_id.clone(), None),
-            String::from("https://remote.tld/ben"),
+            &valid_remote_dummy_create_activity(test_object_id.clone(), None),
+            "https://remote.tld/ben",
         ),
     );
     let result = activity::get_ap_object_by_id(&database, &test_object_id);
@@ -83,15 +80,18 @@ fn get_ap_object_replies_by_id() {
     activity::insert_activity(
         &database,
         ap_activity::create_internal_activity(
-            valid_local_dummy_create_activity(test_object_id.clone(), None),
-            String::from("https://example.tld/alyssa"),
+            &valid_local_dummy_create_activity(test_object_id.clone(), None),
+            "https://example.tld/alyssa",
         ),
     );
     activity::insert_activity(
         &database,
         ap_activity::create_internal_activity(
-            valid_remote_dummy_create_activity(test_reply_id.clone(), Some(test_object_id.clone())),
-            String::from("https://remote.tld/ben"),
+            &valid_remote_dummy_create_activity(
+                test_reply_id.clone(),
+                Some(test_object_id.clone()),
+            ),
+            "https://remote.tld/ben",
         ),
     );
     match activity::get_ap_object_replies_by_id(&database, &test_object_id.clone()) {
@@ -125,15 +125,18 @@ fn count_ap_object_replies_by_id() {
     activity::insert_activity(
         &database,
         ap_activity::create_internal_activity(
-            valid_local_dummy_create_activity(test_object_id.clone(), None),
-            String::from("https://example.tld/alyssa"),
+            &valid_local_dummy_create_activity(test_object_id.clone(), None),
+            "https://example.tld/alyssa",
         ),
     );
     activity::insert_activity(
         &database,
         ap_activity::create_internal_activity(
-            valid_remote_dummy_create_activity(test_reply_id.clone(), Some(test_object_id.clone())),
-            String::from("https://remote.tld/ben"),
+            &valid_remote_dummy_create_activity(
+                test_reply_id.clone(),
+                Some(test_object_id.clone()),
+            ),
+            "https://remote.tld/ben",
         ),
     );
 

@@ -1,19 +1,18 @@
+{% if minimalmode_enabled == "false" %}
 <div class="status">
     <div class="status-header">
-        <img src="{{status_account_avatar}}" class="status-user-avatar">
+        <img src="{{status_account_avatar | safe}}" class="status-user-avatar">
 
         <div class="status-user-info">
-            <div class="status-user-info-displayname"><a href="{{status_account_url}}">{{status_account_displayname}}</a></div>
-            <div class="status-user-info-username"><a href="{{status_account_url}}">{{status_account_acct}}</a></div>
+            <div class="status-user-info-displayname"><a href="{{status_account_url | safe}}">{{status_account_displayname}}</a></div>
+            <div class="status-user-info-username"><a href="{{status_account_url | safe}}">{{status_account_acct}}</a></div>
         </div>
     </div>
-
     <div class="status-content">{{status_content | safe}}</div>
-
     <div class="status-info">
         <ul>
             <li>
-                <div class="status-reply"><a class="status-reply-button">⤷</a><a class="status-info-count">{{status_replies_count}}</a>
+                <div class="status-reply"><a class="status-reply-button" href="/compose?in_reply_to={{status_id}}">⤷</a><a class="status-info-count">{{status_replies_count}}</a>
                 </div>
             </li>
             <li>
@@ -26,8 +25,21 @@
             </li>
         </ul>
         <div class="status-info-meta">
-        <a href="{{status_url}}">View Thread</a>
-        <a href="{{status_uri}}">{{status_created_at}}</a>
+        <a href="{{status_url | safe}}">View Thread</a>
+        <a href="{{status_uri | safe}}">{{status_created_at}}</a>
         </div>
     </div>
 </div>
+{% else %}
+{{status_account_displayname}}
+<br><a href="{{status_account_url | safe}}">{{status_account_acct}}</a>
+<p>{{status_content | safe}}</p>
+<ul>
+    <li><a class="status-reply-button">Reply</a> ({{status_replies_count}})</li>
+    <li><a class="status-favourite-button">Favourite</a> ({{status_favourites_count}})</li>
+    <li><a class="status-share-button">Share</a> ({{status_reblogs_count}})</li>
+</ul>
+<a href="{{status_url | safe}}">View Thread</a>
+<br>{{status_created_at}}
+<hr>
+{% endif %}

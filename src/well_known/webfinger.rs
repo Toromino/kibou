@@ -10,7 +10,7 @@ pub fn webfinger(resource: &RawStr) -> JsonValue {
 
     let mut parsed_resource: &str = &resource.as_str().replace("%3A", ":").replace("%40", "@");
 
-    match get_actor_by_acct(&database, str::replace(parsed_resource, "acct:", "")) {
+    match get_actor_by_acct(&database, &str::replace(parsed_resource, "acct:", "")) {
         Ok(actor) => {
             if actor.local {
                 json!({

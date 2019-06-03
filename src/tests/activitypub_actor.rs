@@ -7,7 +7,7 @@ use tests::utils::delete_test_actor;
 
 #[test]
 fn get_err_by_preferred_username() {
-    let json_object = actor::get_json_by_preferred_username(String::from("希"));
+    let json_object = actor::get_json_by_preferred_username("希");
     assert_eq!(
         json_object["error"].to_string(),
         format!("\"{}\"", "User not found.")
@@ -32,7 +32,7 @@ fn get_json_by_preferred_username() {
         .unwrap_or_else(|| String::from(""));
     let local = test_actor.local.clone();
 
-    let json_object = actor::get_json_by_preferred_username(preferred_username.clone());
+    let json_object = actor::get_json_by_preferred_username(&preferred_username);
 
     delete_test_actor(test_actor);
     assert_eq!(

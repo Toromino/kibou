@@ -1,29 +1,65 @@
 <!doctype html>
 <html>
-
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-
 <body>
     <div id="wrapper">
+        {% if minimalmode_enabled == "false" %}
         <div id="user-menu">
             <ul>
+                <li class="dropdown" style="float: right;">
+		    {% if authenticated_account == "true" %}
+		    <img class="account-avatar-small" src="/static/assets/default_avatar.png">
+		    <span style="margin-right: 5px;">{{authenticated_account_display_name}}</span> <i class="icon-arrow-down"></i>
+		    <ul>
+            <li><a href="/account/1">Profile</a></li>
+            <li><a href="/logout">Logout</a></li>
+            </ul>
+		    {% else %}
+		    <a href="/login">Login</a>
+		    {% endif %}
+		</li>
+                <li><a href="/">Home</a></li>
                 <li><a href="/timeline/global">Timeline</a></li>
+		<li><a href="/settings">Settings</a></li>
                 <li><a href="/about">About</a></li>
             </ul>
         </div>
         <div id="side-menu">
             <div class="header">Latest activities</div>
-            <ul><li><center>No activities yet ...</center></li></ul>
+            <ul>
+                <li>
+                    <center>No activities yet ...</center>
+                </li>
+            </ul>
         </div>
+        {% else %}
+        <div id="user-menu">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+                <li><a href="/timeline/public">Public Timeline</a></li>
+                <li><a href="/timeline/global">Global Timeline</a></li>
+            </ul>
+        </div>
+        {% endif %}
         <div id="timeline">
             {% block router %} {% endblock router %}
         </div>
     </div>
 </body>
+{% if minimalmode_enabled == "false" %}
 <style>
 {{stylesheet | safe}}
 </style>
-
+{% endif %} {% if javascript_enabled == "true" %}
+<script>
+    var mastodon_api_base_uri = '{{mastodon_api_base_uri | safe}}';
+</script>
+<script src="/static/raito_fe/js/timeline.js"></script>
+<script>
+    poll_timeline();
+</script>
+{% endif %}
 </html>

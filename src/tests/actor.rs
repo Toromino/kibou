@@ -96,7 +96,7 @@ fn get_actor_by_acct() {
     let test_actor_id = test_actor.id;
     let acct = test_actor.get_acct();
 
-    match actor::get_actor_by_acct(&database, acct) {
+    match actor::get_actor_by_acct(&database, &acct) {
         Ok(actor) => {
             delete_test_actor(test_actor);
             assert_eq!(test_actor_id, actor.id);
@@ -131,10 +131,7 @@ fn get_local_actor_by_preferred_username() {
     let database = database::establish_connection();
     let mut test_actor = create_local_test_actor("dd4f078d-d5d8-4f84-a99f-7c13841fa962");
 
-    match actor::get_local_actor_by_preferred_username(
-        &database,
-        test_actor.preferred_username.clone(),
-    ) {
+    match actor::get_local_actor_by_preferred_username(&database, &test_actor.preferred_username) {
         Ok(_) => {
             delete_test_actor(test_actor);
             assert!(true);
@@ -262,10 +259,7 @@ fn create_local_actor() {
     let summary = test_actor.summary.clone();
     let local = test_actor.local.clone();
 
-    match actor::get_local_actor_by_preferred_username(
-        &database,
-        test_actor.preferred_username.clone(),
-    ) {
+    match actor::get_local_actor_by_preferred_username(&database, &test_actor.preferred_username) {
         Ok(db_actor) => {
             delete_test_actor(test_actor);
             assert_eq!(db_actor.email, email);
@@ -297,7 +291,7 @@ fn delete_local_actor() {
     let preferred_username = test_actor.preferred_username.clone();
     delete_test_actor(test_actor);
 
-    match actor::get_local_actor_by_preferred_username(&database, preferred_username) {
+    match actor::get_local_actor_by_preferred_username(&database, &preferred_username) {
         Ok(_) => assert!(false, "Actor was not deleted!"),
         Err(_) => assert!(true),
     }

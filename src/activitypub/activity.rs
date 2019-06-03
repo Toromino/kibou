@@ -54,7 +54,7 @@ pub struct Tag {
     pub name: String,
 }
 
-pub fn get_activity_json_by_id(id: String) -> serde_json::Value {
+pub fn get_activity_json_by_id(id: &str) -> serde_json::Value {
     let database = database::establish_connection();
     let activity_id = format!(
         "{}://{}/activities/{}",
@@ -69,7 +69,7 @@ pub fn get_activity_json_by_id(id: String) -> serde_json::Value {
     }
 }
 
-pub fn get_object_json_by_id(id: String) -> serde_json::Value {
+pub fn get_object_json_by_id(id: &str) -> serde_json::Value {
     let database = database::establish_connection();
     let object_id = format!(
         "{}://{}/objects/{}",
@@ -89,12 +89,12 @@ pub fn serialize_from_internal_activity(activity: activity::Activity) -> Activit
 }
 
 pub fn create_internal_activity(
-    json_activity: serde_json::Value,
-    actor_uri: String,
+    json_activity: &serde_json::Value,
+    actor_uri: &str,
 ) -> activity::Activity {
     activity::Activity {
         id: 0,
-        data: json_activity,
-        actor: actor_uri,
+        data: json_activity.clone().to_owned(),
+        actor: actor_uri.to_string(),
     }
 }

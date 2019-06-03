@@ -1,0 +1,45 @@
+{% extends "raito_fe/index" %}
+
+{% block router %}
+<div class="panel">
+<h2>Compose new status</h2>
+<form action="/compose" id="post-form" method="post">
+<div class="status">
+    <div class="status-header">
+        <img src="/static/assets/default_avatar.png" class="status-user-avatar">
+
+        <div class="status-user-info">
+            <div class="status-user-info-displayname"><a href="">You</a></div>
+            <div class="status-user-info-username"><a href="">you@your.instance</a></div>
+        </div>
+    </div>
+    <div class="status-content"><textarea name="status" form="post-form"></textarea></div>
+    <div class="status-info">
+        <ul>
+            <li>
+                <div class="status-reply">⤷ <a class="status-info-count">0</a>
+                </div>
+            </li>
+            <li>
+                <div class="status-favourite">♡ <a class="status-info-count">0</a>
+                </div>
+            </li>
+            <li>
+                <div class="status-share">⟳ <a class="status-info-count">0</a>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<select name="visibility">
+  <option value="public">Public</option>
+  <option value="unlisted">Unlisted</option>
+  <option value="private">Private</option>
+  <option value="direct">Direct Message</option>
+</select>
+
+<input type="submit" text="Submit">
+</form>
+</div>
+{% endblock router %}

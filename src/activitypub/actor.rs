@@ -88,7 +88,7 @@ pub fn remove_follow(account: &str, source: &str) {
 // [TODO]
 pub fn refresh() {}
 
-pub fn get_json_by_preferred_username(preferred_username: String) -> serde_json::Value {
+pub fn get_json_by_preferred_username(preferred_username: &str) -> serde_json::Value {
     let database = database::establish_connection();
 
     match actor::get_local_actor_by_preferred_username(&database, preferred_username) {

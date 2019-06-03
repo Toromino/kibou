@@ -1,18 +1,25 @@
 {% extends "raito_fe/index" %}
-
 {% block router %}
+{% if minimalmode_enabled == "false" %}
 {% if timeline_name == "Conversation" %}
-<div class="header">
-Conversation
-</div>
+<div class="header">Conversation</div>
 {% else %}
 <div id="timeline-menu" class="header">
-<ul>
-<li {% if timeline_name == "Public" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/public">Public</a></li>
-<li {% if timeline_name == "Global" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/global">Global</a></li>
-</ul>
+    <ul>
+    	{% if authenticated_account == "true" %}
+    	<li {% if timeline_name=="Home Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/home">Home</a></li>
+        {% endif %}
+	<li {% if timeline_name=="Public Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/public">Public</a></li>
+        <li {% if timeline_name=="Global Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/global">Global</a></li>
+	{% if authenticated_account == "true" %}
+	<li class="timeline-menu-compose" style="float: right"><a href="/compose">Compose</a></li>
+	{% endif %}
+    </ul>
 </div>
 {% endif %}
-
+{% else %}
+<div class="header">{{timeline_name}}</div>
+<hr>
+{% endif %}
 {{timeline | safe}}
 {% endblock router %}

@@ -109,11 +109,7 @@ pub fn nodeinfo_v2_1() -> JsonValue {
 
 // Lists nodeinfo routes.
 pub fn get_routes() -> Vec<rocket::Route> {
-    routes![
-        nodeinfo,
-        nodeinfo_v2,
-        nodeinfo_v2_1,
-    ]
+    routes![nodeinfo, nodeinfo_v2, nodeinfo_v2_1,]
 }
 
 fn get_local_posts() -> usize {

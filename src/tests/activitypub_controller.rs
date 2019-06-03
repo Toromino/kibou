@@ -43,8 +43,8 @@ fn object_exists() {
     activity::insert_activity(
         &database,
         create_internal_activity(
-            valid_remote_dummy_create_activity(test_object_id.clone(), None),
-            test_actor,
+            &valid_remote_dummy_create_activity(test_object_id.clone(), None),
+            &test_actor,
         ),
     );
     let test_object_exists = controller::object_exists(&test_object_id.clone());

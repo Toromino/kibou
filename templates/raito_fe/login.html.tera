@@ -1,0 +1,21 @@
+{% extends "raito_fe/index" %}
+
+{% block router %}
+<div class="generic-container">
+<div id="registration-form">
+<h3>Log In</h3>
+<form method="post" action="/login">
+    <label>Username</label>
+    <br>
+    <input type="text" name="username">
+    <br>
+    <label>Password</label>
+    <br>
+    <input type="password" name="password">
+    <br >
+    <input type="submit">
+    <br />
+</form>
+</div>
+</div>
+{% endblock router %}

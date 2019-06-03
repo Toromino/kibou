@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use chrono::Duration;
 use chrono::NaiveDateTime;
 use database;
 use database::models::QueryOauthToken;
@@ -65,7 +66,7 @@ pub fn get_token(form: TokenForm) -> JsonValue {
 
     if verify_credentials(&db_connection, form.client_id, form.client_secret) {
         match get_authorization_by_code(&db_connection, form.code) {
-            Ok(authorization) => json!(create(authorization.actor)),
+            Ok(authorization) => json!(create(&authorization.actor)),
             Err(_) => json!({"Error": "OAuth authorization code is invalid."}),
         }
     } else {
@@ -73,28 +74,26 @@ pub fn get_token(form: TokenForm) -> JsonValue {
     }
 }
 
-pub fn create(actor_username: String) -> Token {
+pub fn create(actor_username: &str) -> Token {
     let db_connection = database::establish_connection();
     let mut access_token_num: BigNum = BigNum::new().unwrap();
     let mut refresh_token_num: BigNum = BigNum::new().unwrap();
     let utc_time: chrono::DateTime<Utc> = Utc::now();
+    let expiration_date: chrono::DateTime<Utc> = utc_time + Duration::days(30);
 
-    access_token_num.rand(256, MsbOption::MAYBE_ZERO, true);
-    refresh_token_num.rand(256, MsbOption::MAYBE_ZERO, true);
+    access_token_num
+        .rand(256, MsbOption::MAYBE_ZERO, true)
+        .expect("Error generating access token");
+    refresh_token_num
+        .rand(256, MsbOption::MAYBE_ZERO, true)
+        .expect("Error generating refresh token");
 
     let new_token: Token = Token {
         access_token: access_token_num.to_hex_str().unwrap().to_string(),
         refresh_token: refresh_token_num.to_hex_str().unwrap().to_string(),
-        actor: actor_username,
+        actor: actor_username.to_string(),
         token_type: String::from("Bearer"),
-        valid_until: chrono::NaiveDate::from_ymd(
-            utc_time.year(),
-            utc_time.month() + 1,
-            utc_time.day(),
-        )
-        .and_hms(utc_time.hour(), utc_time.minute(), utc_time.second())
-        .timestamp()
-        .to_string(),
+        valid_until: expiration_date.timestamp().to_string(),
         scope: String::from("read write follow"),
     };
 

@@ -1,7 +1,6 @@
 {% extends "raito_fe/index" %}
-
 {% block router %}
-<div id="text-container">
+<div class="generic-container">
 <h2>About this instance</h2>
 This is a placeholder text, you can edit it in "static/raito_fe/about.html"
 </div>
