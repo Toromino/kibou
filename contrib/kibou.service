@@ -7,13 +7,17 @@ Description=Kibou server
 ; paths according to your Kibou installation
 ; ------------------------------------------------
 WorkingDirectory=/srv/kibou
-ExecStart=/srv/kibou/target/debug/kibou_server
+ExecStart=/srv/kibou/target/release/kibou_server
 ; ------------------------------------------------
 
 ExecReload=/bin/kill $MAINPID
 KillMode=process
 Restart=on-failure
 User=kibou
+
+; Remove the following line if you do not wish to run
+; Kibou in production
+Environment="ROCKET_ENV=production"
 
 [Install]
 WantedBy=multi-user.target
