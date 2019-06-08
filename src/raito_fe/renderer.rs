@@ -29,8 +29,36 @@ pub fn account_by_local_id(
     context.extend(prepare_authentication_context(&authentication));
     context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
 
-    match raito_fe::api_controller::get_account(id) {
+    match raito_fe::api_controller::get_account(&id) {
         Ok(account) => {
+            match &authentication.token {
+                Some(token) => {
+                    match raito_fe::api_controller::relationships_by_token(
+                        &token,
+                        vec![id.parse::<i64>().unwrap()],
+                    ) {
+                        Some(relationship) => {
+                            context.insert(
+                                String::from("account_relationship_following"),
+                                relationship[0].following.to_string(),
+                            );
+                        }
+                        None => {
+                            context.insert(
+                                String::from("account_relationship_following"),
+                                String::from(""),
+                            );
+                        }
+                    }
+                }
+                None => {
+                    context.insert(
+                        String::from("account_relationship_following"),
+                        String::from(""),
+                    );
+                }
+            }
+
             context.insert(String::from("account_acct"), account.acct);
             context.insert(String::from("account_display_name"), account.display_name);
             context.insert(String::from("account_avatar"), account.avatar);
@@ -43,12 +71,12 @@ pub fn account_by_local_id(
                 account.following_count.to_string(),
             );
             context.insert(String::from("account_header"), account.header);
+            context.insert(String::from("account_id"), account.id.clone());
             context.insert(String::from("account_note"), account.note);
             context.insert(
                 String::from("account_statuses_count"),
                 account.statuses_count.to_string(),
             );
-
             context.insert(
                 String::from("account_timeline"),
                 user_timeline(configuration, authentication, account.id),
@@ -74,6 +102,33 @@ pub fn account_by_username(
     match actor::get_local_actor_by_preferred_username(&database, &username) {
         Ok(actor) => account_by_local_id(configuration, authentication, actor.id.to_string()),
         Err(_) => Template::render("raito_fe/index", context),
+    }
+}
+
+pub fn account_follow(
+    configuration: LocalConfiguration,
+    authentication: Authentication,
+    id: i64,
+    unfollow: bool,
+) -> Template {
+    let database = database::establish_connection();
+
+    let mut context = HashMap::<String, String>::new();
+    context.extend(configuration.clone());
+    context.extend(prepare_authentication_context(&authentication));
+    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+
+    match &authentication.token {
+        Some(token) => {
+            if unfollow {
+                raito_fe::api_controller::unfollow(token, id);
+            } else {
+                raito_fe::api_controller::follow(token, id);
+            }
+
+            return account_by_local_id(configuration, authentication, id.to_string());
+        }
+        None => return account_by_local_id(configuration, authentication, id.to_string()),
     }
 }
 

@@ -23,6 +23,24 @@ pub fn account(
     return renderer::account_by_local_id(configuration, authentication, id);
 }
 
+#[get("/account/<id>/follow", rank = 2)]
+pub fn account_follow(
+    configuration: LocalConfiguration,
+    authentication: Authentication,
+    id: i64,
+) -> Template {
+    return renderer::account_follow(configuration, authentication, id, false);
+}
+
+#[get("/account/<id>/unfollow", rank = 2)]
+pub fn account_unfollow(
+    configuration: LocalConfiguration,
+    authentication: Authentication,
+    id: i64,
+) -> Template {
+    return renderer::account_follow(configuration, authentication, id, true);
+}
+
 #[get("/actors/<handle>", rank = 2)]
 pub fn actor(
     configuration: LocalConfiguration,

@@ -1,14 +1,43 @@
 use actor;
 use database;
 use mastodon_api::{
-    controller, routes, Account, AuthorizationHeader, RegistrationForm, Status, StatusForm,
+    controller, routes, Account, AuthorizationHeader, RegistrationForm, Relationship, Status,
+    StatusForm,
 };
 use oauth;
 use raito_fe::{LoginForm, BYPASS_API, MASTODON_API_BASE_URI};
 use reqwest::header::{HeaderValue, ACCEPT};
 use rocket::request::LenientForm;
 
-pub fn get_account(id: String) -> Result<Account, ()> {
+pub fn follow(token: &str, id: i64) -> Result<Relationship, ()> {
+    if unsafe { BYPASS_API } == &true {
+        match serde_json::from_str(
+            &routes::account_follow(AuthorizationHeader(format!("Bearer: {}", token)), id)
+                .to_string(),
+        ) {
+            Ok(relationship) => Ok(relationship),
+            Err(_) => Err(()),
+        }
+    } else {
+        return Err(());
+    }
+}
+
+pub fn unfollow(token: &str, id: i64) -> Result<Relationship, ()> {
+    if unsafe { BYPASS_API } == &true {
+        match serde_json::from_str(
+            &routes::account_unfollow(AuthorizationHeader(format!("Bearer: {}", token)), id)
+                .to_string(),
+        ) {
+            Ok(relationship) => Ok(relationship),
+            Err(_) => Err(()),
+        }
+    } else {
+        return Err(());
+    }
+}
+
+pub fn get_account(id: &str) -> Result<Account, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(&routes::account(id.parse::<i64>().unwrap()).to_string()) {
             Ok(account) => Ok(account),
@@ -185,6 +214,19 @@ pub fn register(form: LenientForm<RegistrationForm>) -> Option<String> {
             None => None,
         }
     } else {
+        None
+    }
+}
+
+pub fn relationships_by_token(token: &str, ids: Vec<i64>) -> Option<Vec<Relationship>> {
+    if unsafe { BYPASS_API } == &true {
+        match controller::relationships_by_token(token, ids) {
+            Ok(relationships) => Some(relationships),
+            Err(_) => None,
+        }
+    } else {
+        // As of now there is no Mastodon-API endpoint for relationships due to limitations of
+        // Rocket
         None
     }
 }

@@ -6,7 +6,13 @@
     <img src="{{account_avatar}}" id="account-profile-picture">
     <div id="account-header-displayname">{{account_display_name}}</div>
     <div id="account-header-username">{{account_acct}}</div>
-    <div id="account-header-follow"><a href="">👤 Follow</a></div>
+    {% if account_relationship_following == "true" %}
+    <div id="account-header-follow"><a href="/account/{{account_id}}/unfollow">👤 Unfollow</a></div>
+    {% elif account_relationship_following == "false" %}
+    <div id="account-header-follow"><a href="/account/{{account_id}}/follow">👤 Follow</a></div>
+    {% else %}
+    <div id="account-header-follow"><a href="">👤 Remote Follow</a></div>
+    {% endif %}
     <div id="account-header-menu">
         <ul>
             <li>Statuses
