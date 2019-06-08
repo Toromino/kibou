@@ -65,7 +65,7 @@ pub fn account_create_json(form: &RegistrationForm) -> JsonValue {
 pub fn account_create(form: &RegistrationForm) -> Option<Token> {
     let email_regex = Regex::new(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$").unwrap();
     let username_regex = Regex::new(r"^[A-Za-z0-9_]{1,32}$").unwrap();
-    
+
     if username_regex.is_match(&form.username) && email_regex.is_match(&form.email) {
         let database = database::establish_connection();
         let mut new_actor = actor::Actor {
@@ -153,28 +153,35 @@ pub fn context_json_for_id(id: i64) -> JsonValue {
     }
 }
 
-pub fn follow(token: String, target_id: i64) -> JsonValue {
+pub fn follow_json(token: String, id: i64) -> JsonValue {
+    match follow(&token, id) {
+        Ok(relationship) => json!(relationship),
+        Err(e) => json!({ "error": e }),
+    }
+}
+
+pub fn follow(token: &str, target_id: i64) -> Result<Relationship, &'static str> {
     let database = database::establish_connection();
 
-    match verify_token(&database, token) {
+    match verify_token(&database, token.to_string()) {
         Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let followee = actor::get_actor_by_id(&database, target_id).unwrap();
 
                 kibou_api::follow(actor.actor_uri, followee.actor_uri);
-                return json!(Relationship {
+                return Ok(Relationship {
                     id: followee.id.to_string(),
                     following: true,
                     followed_by: false,
                     blocking: false,
                     muting: false,
                     muting_notifications: false,
-                    requested: false
+                    requested: false,
                 });
             }
-            Err(_) => json!({"error": "User not found."}),
+            Err(_) => Err("User not found."),
         },
-        Err(_) => json!({"error": "Token invalid!"}),
+        Err(_) => Err("Token invalid!"),
     }
 }
 
@@ -192,10 +199,20 @@ pub fn public_timeline_json(parameters: PublicTimeline) -> JsonValue {
     }
 }
 
-pub fn relationships_by_token(token: String, ids: Vec<i64>) -> JsonValue {
+pub fn relationships_json_by_token(token: &str, ids: Vec<i64>) -> JsonValue {
+    match relationships_by_token(token, ids) {
+        Ok(relationships) => json!(relationships),
+        Err(e) => json!({ "error": e }),
+    }
+}
+
+pub fn relationships_by_token(
+    token: &str,
+    ids: Vec<i64>,
+) -> Result<Vec<Relationship>, &'static str> {
     let database = database::establish_connection();
 
-    match verify_token(&database, token) {
+    match verify_token(&database, token.to_string()) {
         Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
                 let mut relationships: Vec<Relationship> = Vec::new();
@@ -221,7 +238,17 @@ pub fn relationships_by_token(token: String, ids: Vec<i64>) -> JsonValue {
                                 requested: false,
                             });
                         }
-                        None => (),
+                        None => {
+                            relationships.push(Relationship {
+                                id: id.to_string(),
+                                following: false,
+                                followed_by: false,
+                                blocking: false,
+                                muting: false,
+                                muting_notifications: false,
+                                requested: false,
+                            });
+                        }
                     }
 
                     match activitypub_followees
@@ -252,11 +279,11 @@ pub fn relationships_by_token(token: String, ids: Vec<i64>) -> JsonValue {
                         None => (),
                     }
                 }
-                return json!(relationships);
+                return Ok(relationships);
             }
-            Err(_) => json!({"error": "User not found."}),
+            Err(_) => Err("User not found."),
         },
-        Err(_) => json!({"error": "Token invalid!"}),
+        Err(_) => Err("Acces token invalid!"),
     }
 }
 

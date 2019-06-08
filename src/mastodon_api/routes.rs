@@ -19,7 +19,7 @@ pub fn options_account(id: i64) -> JsonValue {
 
 #[post("/api/v1/accounts/<id>/follow")]
 pub fn account_follow(_token: AuthorizationHeader, id: i64) -> JsonValue {
-    controller::follow(parse_authorization_header(&_token.to_string()), id)
+    controller::follow_json(parse_authorization_header(&_token.to_string()), id)
 }
 
 #[get("/api/v1/accounts/<id>/statuses?<only_media>&<pinned>&<exclude_replies>&<max_id>&<since_id>&<min_id>&<limit>&<exclude_reblogs>")]
