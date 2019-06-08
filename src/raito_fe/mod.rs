@@ -88,6 +88,8 @@ pub fn get_routes() -> Vec<rocket::Route> {
     routes![
         routes::about,
         routes::account,
+        routes::account_follow,
+        routes::account_unfollow,
         routes::actor,
         routes::global_timeline,
         routes::home_timeline,
