@@ -31,24 +31,41 @@ pub fn account_by_local_id(
 
     match raito_fe::api_controller::get_account(&id) {
         Ok(account) => {
-            match &authentication.token {
-                Some(token) => {
-                    match raito_fe::api_controller::relationships_by_token(
-                        &token,
-                        vec![id.parse::<i64>().unwrap()],
-                    ) {
-                        Some(relationship) => {
-                            context.insert(
-                                String::from("account_relationship_following"),
-                                relationship[0].following.to_string(),
-                            );
+            match &authentication.account {
+                Some(account) => {
+                    if &account.id != &id {
+                        match &authentication.token {
+                            Some(token) => {
+                                match raito_fe::api_controller::relationships_by_token(
+                                    &token,
+                                    vec![id.parse::<i64>().unwrap()],
+                                ) {
+                                    Some(relationship) => {
+                                        context.insert(
+                                            String::from("account_relationship_following"),
+                                            relationship[0].following.to_string(),
+                                        );
+                                    }
+                                    None => {
+                                        context.insert(
+                                            String::from("account_relationship_following"),
+                                            String::from(""),
+                                        );
+                                    }
+                                }
+                            }
+                            None => {
+                                context.insert(
+                                    String::from("account_relationship_following"),
+                                    String::from(""),
+                                );
+                            }
                         }
-                        None => {
-                            context.insert(
-                                String::from("account_relationship_following"),
-                                String::from(""),
-                            );
-                        }
+                    } else {
+                        context.insert(
+                            String::from("account_relationship_following"),
+                            String::from(""),
+                        );
                     }
                 }
                 None => {
