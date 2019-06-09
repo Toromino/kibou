@@ -30,8 +30,8 @@ pub fn get_home_timeline(
         "SELECT id \
          FROM activities \
          WHERE \
-         (data->>'type' = 'Create' OR \
-         data->>'type' = 'Announce') AND \
+         (data @> '{{\"type\": \"Create\"}}' OR \
+         data @> '{{\"type\": \"Announce\"}}') AND \
          (actor_uri = ANY (ARRAY['{followees}']::varchar(255)[]) OR \
          actor_uri = '{actor_uri}') \
          {id} \
@@ -74,8 +74,8 @@ pub fn get_public_timeline(
     match sql_query(format!(
         "SELECT id \
          FROM activities \
-         WHERE data->>'type' = 'Create' AND \
-         (data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
+         WHERE data @> '{{\"type\": \"Create\"}}' AND \
+         data -> 'to' ? 'https://www.w3.org/ns/activitystreams#Public' \
          {local} \
          {id} \
          LIMIT {limit};",
@@ -107,11 +107,11 @@ pub fn get_user_timeline(
         "SELECT id \
          FROM activities \
          WHERE \
-         (data->>'type' = 'Create' OR \
-         data->>'type' = 'Announce') AND \
+         (data @> '{{\"type\": \"Create\"}}' OR \
+         data @> '{{\"type\": \"Announce\"}}') AND \
          actor_uri = '{actor_uri}' AND \
-         ((data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' OR \
-         (data->>'cc')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public') \
+         (data -> 'to' ? 'https://www.w3.org/ns/activitystreams#Public' OR \
+         data -> 'cc' ? 'https://www.w3.org/ns/activitystreams#Public') \
          {id} \
          LIMIT {limit};",
         actor_uri = runtime_escape(&actor.actor_uri),
