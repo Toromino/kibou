@@ -21,10 +21,9 @@ pub fn count_ap_object_replies_by_id(
     object_id: &str,
 ) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * FROM activities WHERE data->'object'->>'inReplyTo' = '{}';",
+        "SELECT * FROM activities WHERE data @> '{{\"object\": {{\"inReplyTo\": \"{}\"}}}}';",
         runtime_escape(object_id)
     ))
-    .clone()
     .load::<QueryActivity>(db_connection)
     {
         Ok(activity_arr) => Ok(activity_arr.len()),
@@ -37,7 +36,9 @@ pub fn count_ap_object_reactions_by_id(
     object_id: &str,
     reaction: &str,
 ) -> Result<usize, diesel::result::Error> {
-    match sql_query(format!("SELECT * FROM activities WHERE data->>'type' = '{reaction_type}' AND data->>'object'= '{id}';",
+    match sql_query(format!(
+        "SELECT * FROM activities WHERE data @> '{{\"type\": \"{reaction_type}\"}}' \
+        AND data @> '{{\"object\": \"{id}\"}}';",
                             reaction_type = runtime_escape(reaction),
                             id = runtime_escape(object_id)))
         .load::<QueryActivity>(db_connection)
@@ -107,7 +108,7 @@ pub fn get_ap_activity_by_id(
     activity_id: &str,
 ) -> Result<Activity, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * FROM activities WHERE data->>'id' = '{}' LIMIT 1;",
+        "SELECT * FROM activities WHERE data @> '{{\"id\": \"{}\"}}' LIMIT 1;",
         runtime_escape(activity_id)
     ))
     .clone()
@@ -130,7 +131,7 @@ pub fn get_ap_object_by_id(
     object_id: &str,
 ) -> Result<Activity, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * FROM activities WHERE data->'object'->>'id' = '{}' LIMIT 1;",
+        "SELECT * FROM activities WHERE data @> '{{\"object\": {{\"id\": \"{}\"}}}}' LIMIT 1;",
         runtime_escape(object_id)
     ))
     .clone()

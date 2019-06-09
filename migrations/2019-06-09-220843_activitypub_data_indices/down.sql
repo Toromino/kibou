@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS activities_ap_data;
