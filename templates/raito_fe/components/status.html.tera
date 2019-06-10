@@ -25,7 +25,7 @@
             </li>
         </ul>
         <div class="status-info-meta">
-        <a href="{{status_url | safe}}">View Thread</a>
+        <a href="{{status_url | safe}}">Conversation</a>
         <a href="{{status_uri | safe}}">{{status_created_at}}</a>
         </div>
     </div>
