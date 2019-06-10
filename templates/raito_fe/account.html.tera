@@ -42,6 +42,7 @@
     </div>
 </div>
 <div id="account-timeline">
+<div class="header">Statuses</div>
     {{account_timeline | safe}}
 </div>
 {% else %}
