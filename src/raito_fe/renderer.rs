@@ -155,13 +155,33 @@ pub fn compose(
     in_reply_to: Option<i64>,
 ) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration);
+    context.extend(configuration.clone());
     context.extend(prepare_authentication_context(&authentication));
     context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
 
     if authentication.account.is_none() {
         return Template::render("raito_fe/infoscreen", context);
     } else {
+        match in_reply_to {
+            Some(head_status_id) => {
+                let renderer = rocket::ignite().attach(Template::fairing());
+                match raito_fe::api_controller::get_status(head_status_id.to_string()) {
+                    Ok(status) => context.insert(
+                        String::from("head_status"),
+                        format!(
+                            "<input type=\"hidden\" name=\"in_reply_to_id\" value=\"{}\">{}",
+                            status.id.clone(),
+                            raw_status(configuration, &authentication, status, &renderer)
+                        ),
+                    ),
+                    Err(_) => context.insert(String::from("head_status"), String::from("")),
+                };
+            }
+            None => {
+                context.insert(String::from("head_status"), String::from(""));
+            }
+        }
+
         return Template::render("raito_fe/status_post", context);
     }
 }

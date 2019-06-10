@@ -57,6 +57,17 @@ form input {
 	margin-bottom: 10px;
 }
 
+select {
+	background: var(--button-background-color);
+        color: var(--button-text-color);
+        font-size: 16px;
+        border-color: var(--link-color);
+        border-style: none;
+        border-bottom-style: groove;
+        border-radius: 0px;
+        height: 30px;
+}
+
 form input[type="submit"] {
 	background: var(--button-background-color);
 	color: var(--button-text-color);
@@ -206,24 +217,25 @@ textarea {
 	border-width: 2px;
 }
 
-#post-form {
-	display: block;
-	padding: 5px 5px 5px 5px;
-	border-color: var(--background-color);
-	border-bottom-style: solid;
-	border-width: 1px;
+#status-draft {
+	float: left;
 }
 
-#post-form h4 {
-	color: var(--button-text-color);
-	margin-top: 0;
-}
-
-#post-form textarea {
+#status-draft textarea {
 	min-height: 50px;
 	resize: vertical;
-	width: calc(100%);
+	width: 100%;
 	margin: 0;
+}
+
+#status-draft select[name="visibility"] {
+	float: left;
+	margin-top: 10px;
+}
+
+#status-draft input[type="submit"] {
+	float: right;
+	margin-top: 10px;
 }
 
 #user-menu {
