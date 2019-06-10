@@ -1,9 +1,10 @@
 {% extends "raito_fe/index" %}
 
 {% block router %}
-<div class="panel">
+<div class="panel" id="status-draft">
 <h2>Compose new status</h2>
 <form action="/compose" id="post-form" method="post">
+{{ head_status | safe }}
 <div class="status">
     <div class="status-header">
         <img src="/static/assets/default_avatar.png" class="status-user-avatar">
