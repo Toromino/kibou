@@ -469,6 +469,23 @@ textarea {
 	min-width: 90%;
 }
 
+.status-content img:first-child {
+	height: 250px;
+        border-radius: 16px;
+	float: left;
+	margin-right: 50%;
+	margin-top: 10px;
+}
+
+.status-content img:not(:first-child) {
+	margin-top: 10px;
+	height: 100px;
+	width: 100px;
+	border-radius: 16px;
+	margin-right: 10px;
+	float: left;
+}
+
 .status-content a {
 	color: var(--link-color);
 	text-decoration: none;
