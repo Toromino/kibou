@@ -626,6 +626,26 @@ fn prepare_status_context(status: Status) -> HashMap<String, String> {
     context.insert(String::from("status_created_at"), date);
     context.insert(String::from("status_favourites_count"), favourites_count);
     context.insert(String::from("status_id"), status.id.to_string());
+    context.insert(
+        String::from("status_reblog"),
+        status.reblog.is_some().to_string(),
+    );
+    match status.reblog {
+        Some(reblog_status) => {
+            let reblog: Status = serde_json::from_value(reblog_status).unwrap();
+            context.insert(String::from("reblog_account_acct"), reblog.account.acct);
+            context.insert(
+                String::from("reblog_account_url"),
+                format!("/account/{}", reblog.id),
+            );
+            context.insert(String::from("reblog_content"), reblog.content);
+        }
+        None => {
+            context.insert(String::from("reblog_account_acct"), String::from(""));
+            context.insert(String::from("reblog_account_url"), String::from(""));
+            context.insert(String::from("reblog_content"), String::from(""));
+        }
+    }
     context.insert(String::from("status_reblogs_count"), shares_count);
     context.insert(String::from("status_replies_count"), replies_count);
     context.insert(String::from("status_uri"), status.uri);
