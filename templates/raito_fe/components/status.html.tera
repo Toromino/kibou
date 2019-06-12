@@ -8,7 +8,17 @@
             <div class="status-user-info-username"><a href="{{status_account_url | safe}}">{{status_account_acct}}</a></div>
         </div>
     </div>
-    <div class="status-content">{{status_content | safe}}</div>
+    <div class="status-content">
+    {% if status_reblog == "true" %}
+    <span class="status-reblog-divider">Has shared</span>
+    <img src="/static/assets/default_avatar.png" class="status-reblog-avatar">
+    <a href="{{reblog_account_url}}" class="status-reblog-username">{{reblog_account_acct}}</a>
+    <br />
+    <p class="status-reblog-content">{{reblog_content | safe}}</p>
+    {% else %}
+    {{status_content | safe}}
+    {% endif %}
+    </div>
     <div class="status-info">
         <ul>
             <li>
