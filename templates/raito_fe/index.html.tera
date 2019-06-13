@@ -17,7 +17,7 @@
             <li><a href="/logout">Logout</a></li>
             </ul>
 		    {% else %}
-		    <a href="/login">Login</a>
+		    <a href="/login"><img style="height: 15px; margin-top: 2px; right: 15px; position: absolute;" src="/static/raito_fe/fonts/open-iconic/svg/account-login.svg" alt="Login"></a>
 		    {% endif %}
 		</li>
                 <li><a href="/">Home</a></li>

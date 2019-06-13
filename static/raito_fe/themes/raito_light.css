@@ -509,20 +509,27 @@ textarea {
 	margin-right: 12px;
 }
 
+.status-info img { 
+	float: left;
+	height: 15px;
+	margin-top: 5px;
+	margin-bottom: 3px;
+	padding-right: 4px;
+	filter: contrast(50%);
+}
+
 .status-favourite-button:hover {
-	color: red;
+	filter: invert(14%) sepia(77%) saturate(6058%) hue-rotate(357deg) brightness(99%) contrast(112%);
 	cursor: pointer;
 }
 
-.status-reply-button { color: inherit; text-decoration: inherit; }
-
 .status-reply-button:hover {
-	color: var(--link-color);
+	filter: invert(70%) sepia(31%) saturate(2511%) hue-rotate(184deg) brightness(99%) contrast(106%);
 	cursor: pointer;
 }
 
 .status-share-button:hover {
-	color: green;
+	filter: invert(73%) sepia(54%) saturate(6296%) hue-rotate(80deg) brightness(117%) contrast(125%);
 	cursor: pointer;
 }
 
@@ -578,11 +585,16 @@ textarea {
 	height: 25px !important;
 	width: 25px !important;
 	margin: 0 !important;
+	margin-top: 15px !important;
 }
 
 .status-reblog-content {
+	background: var(--focus-color);
+	border-radius: 4px;
+	padding: 4px 4px 4px 4px;
 	clear: both;
 	float: left;
+	width: 560px;
 	margin: 0;
 	margin-top: 10px;
 }
@@ -590,15 +602,18 @@ textarea {
 .status-reblog-divider {
 	font-weight: bold;
 	float: left;
+	width: 100%;
 	margin-top: 5px;
 	margin-right: 15px;
 }
+
+.inner-icon { float: left; height: 15px !important; margin: 0 !important; padding-right: 5px; }
 
 .status-reblog-username {
 	color: var(--text-color) !important;
 	font-size: 15px;
 	float: left;
-	margin-top: 2px;
+	margin-top: 18px;
 	margin-left: 10px;
 }
 
@@ -688,10 +703,22 @@ textarea {
 .timeline-menu-compose {
 	background: var(--button-background-color);
 	border-top-right-radius: 4px;
+	position: relative;
 }
 
 .timeline-menu-compose a {
+	display: block;
+	height: 100%;
+	width: 100%;
 	color: var(--button-text-color) !important;
+}
+
+.timeline-menu-compose img {
+	filter: invert(96%) sepia(0%) saturate(5%) hue-rotate(130deg) brightness(106%) contrast(102%);
+	height: 15px;
+	position: absolute;
+   	top: 25%;
+   	left: 45%;
 }
 
 #timeline-menu a {
