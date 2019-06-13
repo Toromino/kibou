@@ -630,6 +630,17 @@ fn prepare_status_context(status: Status) -> HashMap<String, String> {
         String::from("status_reblog"),
         status.reblog.is_some().to_string(),
     );
+
+    let mut media_context: Vec<String> = Vec::new();
+    for attachment in status.media_attachments {
+        media_context.push(format!("<img src=\"{}\">", attachment.url));
+    }
+
+    context.insert(
+        String::from("status_media_attachments"),
+        media_context.join(""),
+    );
+
     match status.reblog {
         Some(reblog_status) => {
             let reblog: Status = serde_json::from_value(reblog_status).unwrap();
