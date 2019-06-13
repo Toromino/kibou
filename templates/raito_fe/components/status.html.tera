@@ -17,6 +17,7 @@
     <p class="status-reblog-content">{{reblog_content | safe}}</p>
     {% else %}
     {{status_content | safe}}
+    {{status_media_attachments | safe}}
     {% endif %}
     </div>
     <div class="status-info">
