@@ -10,7 +10,7 @@
     </div>
     <div class="status-content">
     {% if status_reblog == "true" %}
-    <span class="status-reblog-divider">Has shared</span>
+    <span class="status-reblog-divider"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/loop-circular.svg">has shared</span>
     <img src="/static/assets/default_avatar.png" class="status-reblog-avatar">
     <a href="{{reblog_account_url}}" class="status-reblog-username">{{reblog_account_acct}}</a>
     <br />
@@ -22,15 +22,15 @@
     <div class="status-info">
         <ul>
             <li>
-                <div class="status-reply"><a class="status-reply-button" href="/compose?in_reply_to={{status_id}}">⤷</a><a class="status-info-count">{{status_replies_count}}</a>
+                <div class="status-reply"><a class="status-reply-button" href="/compose?in_reply_to={{status_id}}"><img src="/static/raito_fe/fonts/open-iconic/svg/share.svg" alt="Reply"></a><a class="status-info-count">{{status_replies_count}}</a>
                 </div>
             </li>
             <li>
-                <div class="status-favourite"><a class="status-favourite-button">♡</a><a class="status-info-count">{{status_favourites_count}}</a>
+                <div class="status-favourite"><a class="status-favourite-button"><img src="/static/raito_fe/fonts/open-iconic/svg/heart.svg" alt="Favourite"></a><a class="status-info-count">{{status_favourites_count}}</a>
                 </div>
             </li>
             <li>
-                <div class="status-share"><a class="status-share-button">⟳</a><a class="status-info-count">{{status_reblogs_count}}</a>
+                <div class="status-share"><a class="status-share-button"><img src="/static/raito_fe/fonts/open-iconic/svg/loop.svg"i alt="Share"></a><a class="status-info-count">{{status_reblogs_count}}</a>
                 </div>
             </li>
         </ul>

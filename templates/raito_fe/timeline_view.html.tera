@@ -7,12 +7,12 @@
 <div id="timeline-menu" class="header">
     <ul>
     	{% if authenticated_account == "true" %}
-    	<li {% if timeline_name=="Home Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/home">Home</a></li>
+    	<li {% if timeline_name=="Home Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/home"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/home.svg">Home</a></li>
         {% endif %}
-	<li {% if timeline_name=="Public Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/public">Public</a></li>
-        <li {% if timeline_name=="Global Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/global">Global</a></li>
+	<li {% if timeline_name=="Public Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/public"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/people.svg">Public</a></li>
+        <li {% if timeline_name=="Global Timeline" %} class="timeline-menu-active-tab" {% endif %}><a href="/timeline/global"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/globe.svg">Global</a></li>
 	{% if authenticated_account == "true" %}
-	<li class="timeline-menu-compose" style="float: right"><a href="/compose">Compose</a></li>
+	<li class="timeline-menu-compose" style="float: right"><a href="/compose"><img src="/static/raito_fe/fonts/open-iconic/svg/pencil.svg"></a></li>
 	{% endif %}
     </ul>
 </div>

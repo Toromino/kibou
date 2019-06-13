@@ -7,15 +7,15 @@
     <div id="account-header-displayname">{{account_display_name}}</div>
     <div id="account-header-username">{{account_acct}}</div>
     {% if account_relationship_following == "true" %}
-    <div id="account-header-follow"><a href="/account/{{account_id}}/unfollow">👤 Unfollow</a></div>
+    <div id="account-header-follow"><a href="/account/{{account_id}}/unfollow"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/x.svg"> Unfollow</a></div>
     {% elif account_relationship_following == "false" %}
-    <div id="account-header-follow"><a href="/account/{{account_id}}/follow">👤 Follow</a></div>
+    <div id="account-header-follow"><a href="/account/{{account_id}}/follow"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/person.svg"> Follow</a></div>
     {% elif account_relationship_following == "self" %}
     {% else %}
     {% if authenticated_account == "true" %}
     <div id="account-header-follow">It's you!</div>
     {% else %}
-    <div id="account-header-follow"><a href="">👤 Remote Follow</a></div>
+    <div id="account-header-follow"><a href=""><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/person.svg"> Remote Follow</a></div>
     {% endif %}
     {% endif %}
     <div id="account-header-menu">
@@ -32,7 +32,7 @@
                 <br />
                 <p>{{account_followers_count}}</p>
             </li>
-            <li style="float: right; width: 40px; padding-top: 10px;">&#9881;</li>
+            <li style="float: right; width: 40px; padding-top: 10px;"><img src="/static/raito_fe/fonts/open-iconic/svg/ellipses.svg" style="height: 12px;"></li>
         </ul>
     </div>
 </div>
