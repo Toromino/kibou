@@ -402,6 +402,26 @@ pub fn unfollow(token: String, target_id: i64) -> JsonValue {
     }
 }
 
+cached! {
+    MASTODON_API_ACCOUNT_CACHE;
+fn account_by_uri(uri: &'static str) -> Result<serde_json::Value, String> = {
+    let database = database::establish_connection();
+    match actor::get_actor_by_uri(&database, uri) {
+        Ok(account) => {
+                Ok(serde_json::to_value(serialize_account(account, false)).unwrap())
+            },
+        Err(_) => Err(format!("Account not found: {}", &uri)),
+    }
+}
+}
+
+fn account_cached_by_uri(uri: &'static str) -> Result<Account, String> {
+    match account_by_uri(uri) {
+        Ok(account) => Ok(serde_json::from_value(account).unwrap()),
+        Err(e) => Err(e),
+    }
+}
+
 fn count_favourites(database: &PgConnection, status_id: &str) -> i64 {
     match activity::count_ap_object_reactions_by_id(database, status_id, "Like") {
         Ok(replies) => replies as i64,
@@ -546,16 +566,8 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
         serialize_attachments_from_activitystreams(&activity);
     let serialized_activity: activitypub::activity::Activity =
         serde_json::from_value(activity.data).unwrap();
-    let serialized_account: Account = match actor::get_actor_by_uri(&database, &activity.actor) {
-        Ok(actor) => serialize_account(actor, false),
-        Err(_) => {
-            activitypub::controller::fetch_object_by_id(serialized_activity.actor.clone());
-            serialize_account(
-                actor::get_actor_by_uri(&database, &serialized_activity.actor).unwrap(),
-                false,
-            )
-        }
-    };
+    let serialized_account =
+        account_cached_by_uri(Box::leak(activity.actor.into_boxed_str())).unwrap();
 
     match serialized_activity._type.as_str() {
         "Create" => {
