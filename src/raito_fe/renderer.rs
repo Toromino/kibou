@@ -11,12 +11,16 @@ use rocket::response::Redirect;
 use rocket::Rocket;
 use rocket_contrib::templates::Template;
 use std::collections::HashMap;
+use std::fs;
 
 pub fn about(configuration: LocalConfiguration, authentication: Authentication) -> Template {
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration);
     context.extend(prepare_authentication_context(&authentication));
     context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.insert("content".to_string(), fs::read_to_string("static/raito_fe/html/about.html").unwrap_or_else(|_| String::from("<h2>About this node</h2>
+This is a placeholder text, it can be edited in \"static/raito_fe/html/about.html\"
+")));
     return Template::render("raito_fe/about", context);
 }
 
