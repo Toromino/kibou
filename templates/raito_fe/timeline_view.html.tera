@@ -22,4 +22,9 @@
 <hr>
 {% endif %}
 {{timeline | safe}}
+<div class="footer">
+<ul>
+<li><a href=""><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/reload.svg"></a></li>
+</ul>
+</div>
 {% endblock router %}

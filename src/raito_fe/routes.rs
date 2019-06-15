@@ -2,6 +2,7 @@ use mastodon_api::{RegistrationForm, StatusForm};
 use raito_fe::{renderer, Authentication, LocalConfiguration, LoginForm};
 use rocket::http::Cookies;
 use rocket::request::LenientForm;
+use rocket::response::Redirect;
 use rocket_contrib::templates::Template;
 
 #[get("/")]
@@ -64,7 +65,7 @@ pub fn status_compose(
     configuration: LocalConfiguration,
     authentication: Authentication,
     form: LenientForm<StatusForm>,
-) -> Template {
+) -> Redirect {
     return renderer::compose_post(configuration, authentication, form);
 }
 
@@ -79,7 +80,7 @@ pub fn login_post(
     authentication: Authentication,
     cookies: Cookies,
     form: LenientForm<LoginForm>,
-) -> Template {
+) -> Result<Redirect, Template> {
     return renderer::login_post(configuration, authentication, cookies, form);
 }
 
@@ -106,7 +107,7 @@ pub fn register(
     authentication: Authentication,
     cookies: Cookies,
     form: LenientForm<RegistrationForm>,
-) -> Template {
+) -> Result<Redirect, Template> {
     return renderer::register_post(configuration, authentication, cookies, form);
 }
 
