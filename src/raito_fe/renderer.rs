@@ -7,6 +7,7 @@ use mastodon_api::{RegistrationForm, Status, StatusForm};
 use raito_fe::{self, Authentication, LocalConfiguration, LoginForm};
 use rocket::http::{Cookie, Cookies};
 use rocket::request::LenientForm;
+use rocket::response::Redirect;
 use rocket::Rocket;
 use rocket_contrib::templates::Template;
 use std::collections::HashMap;
@@ -190,7 +191,7 @@ pub fn compose_post(
     configuration: LocalConfiguration,
     authentication: Authentication,
     form: LenientForm<StatusForm>,
-) -> Template {
+) -> Redirect {
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration.clone());
     context.extend(prepare_authentication_context(&authentication));
@@ -199,9 +200,9 @@ pub fn compose_post(
     match &authentication.token {
         Some(token) => {
             raito_fe::api_controller::post_status(form, &token);
-            return home_timeline(configuration, authentication);
+            return Redirect::to("/timeline/home");
         }
-        None => return Template::render("raito_fe/infoscreen", context),
+        None => return Redirect::to("/"),
     }
 }
 
@@ -396,7 +397,7 @@ pub fn login_post(
     authentication: Authentication,
     mut cookies: Cookies,
     form: LenientForm<LoginForm>,
-) -> Template {
+) -> Result<Redirect, Template> {
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration.clone());
     context.extend(prepare_authentication_context(&authentication));
@@ -406,12 +407,12 @@ pub fn login_post(
         match raito_fe::api_controller::login(form) {
             Some(token) => {
                 cookies.add_private(Cookie::new("oauth_token", token));
-                return public_timeline(configuration, authentication, false);
+                return Ok(Redirect::to("/timeline/home"));
             }
-            None => Template::render("raito_fe/login", context),
+            None => Err(Template::render("raito_fe/login", context)),
         }
     } else {
-        return public_timeline(configuration, authentication, false);
+        return Ok(Redirect::to("/timeline/home"));
     }
 }
 
@@ -499,7 +500,7 @@ pub fn register_post(
     authentication: Authentication,
     mut cookies: Cookies,
     form: LenientForm<RegistrationForm>,
-) -> Template {
+) -> Result<Redirect, Template> {
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration.clone());
     context.extend(prepare_authentication_context(&authentication));
@@ -509,12 +510,12 @@ pub fn register_post(
         match raito_fe::api_controller::register(form) {
             Some(token) => {
                 cookies.add_private(Cookie::new("oauth_token", token));
-                public_timeline(configuration, authentication, false)
+                return Ok(Redirect::to("/timeline/home"));
             }
-            None => Template::render("raito_fe/infoscreen", context),
+            None => return Err(Template::render("raito_fe/infoscreen", context)),
         }
     } else {
-        return home_timeline(configuration, authentication);
+        return Ok(Redirect::to("/timeline/home"));
     }
 }
 

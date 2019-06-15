@@ -44,6 +44,11 @@
 <div id="account-timeline">
 <div class="header">Statuses</div>
     {{account_timeline | safe}}
+<div class="footer">
+<ul>
+<li><a href=""><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/reload.svg"></a></li>
+</ul>
+</div>
 </div>
 {% else %}
 {{account_display_name}}

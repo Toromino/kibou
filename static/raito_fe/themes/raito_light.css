@@ -213,7 +213,7 @@ textarea {
 
 #account-timeline {
 	margin-top: 10px;
-	height: 65vh;
+	height: 60vh;
 }
 
 #registration-form {
@@ -424,6 +424,25 @@ textarea {
 
 .dropdown:hover .dropdown-content {
 	display: block;
+}
+
+.footer {
+	background: var(--background-color);
+        border-bottom-left-radius: 4px !important;
+        border-bottom-right-radius: 4px !important;
+        font-size: 16px;
+        padding-top: 10px;
+        padding-left: 10px;
+        height: 25px;
+}
+
+.footer ul { margin: 0; padding: 0; }
+
+.footer li {
+	float: left;
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 
 .header {
@@ -651,8 +670,21 @@ textarea {
 	text-decoration: none;
 }
 
+.timeline-pagination {
+	margin-right: 5px !important;
+	float: right !important;
+}
+
+.timeline-pagination a {
+	background: var(--link-color);
+	border-radius: 4px;
+	padding: 2px;
+	color: var(--button-text-color);
+	text-decoration: none;
+}
+
 #inner-timeline {
-	background: inherit;
+	background: var(--foreground-color);
 	position: relative;
 	overflow-y: auto;
 	overflow-x: hidden;
@@ -662,7 +694,7 @@ textarea {
 #timeline {
 	position: relative;
 	float: left;
-	height: 85vh;
+	height: 80vh;
 	width: 600px;
 	margin-top: 10px;
 	margin-left: 10px;

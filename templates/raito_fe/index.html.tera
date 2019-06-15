@@ -20,8 +20,12 @@
 		    <a href="/login"><img style="height: 15px; margin-top: 2px; right: 15px; position: absolute;" src="/static/raito_fe/fonts/open-iconic/svg/account-login.svg" alt="Login"></a>
 		    {% endif %}
 		</li>
+		{% if authenticated_account == "false" %}
                 <li><a href="/">Home</a></li>
                 <li><a href="/timeline/global">Timeline</a></li>
+		{% else %}
+		<li><a href="/timeline/home">Timeline</a></li>
+		{% endif %}
 		<li><a href="/settings">Settings</a></li>
                 <li><a href="/about">About</a></li>
             </ul>
