@@ -47,6 +47,7 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
                 activitypub::routes::inbox
             ],
         )
+        .mount("/", routes![kibou_api::routes::activities])
         .mount(
             "/",
             routes![
