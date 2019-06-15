@@ -4,6 +4,8 @@
 //! Furthermore Kibou_API will implement endpoints which are unique to the Kibou backend.
 //!
 
+pub mod routes;
+
 use activity::{get_activity_by_id, get_ap_activity_by_id};
 use activitypub::activity::Tag;
 use activitypub::actor::{add_follow, remove_follow};
@@ -12,7 +14,11 @@ use actor::{get_actor_by_acct, get_actor_by_uri, is_actor_followed_by, Actor};
 use database;
 use diesel::PgConnection;
 use html;
+use mastodon_api;
 use regex::Regex;
+use rocket_contrib::json;
+use rocket_contrib::json::JsonValue;
+use timeline;
 use web_handler::federator;
 
 pub fn follow(actor: String, object: String) {
@@ -39,6 +45,10 @@ pub fn follow(actor: String, object: String) {
             Err(_) => (),
         }
     }
+}
+
+pub fn route_activities() -> JsonValue {
+    return json!(public_activities());
 }
 
 pub fn status_build(
@@ -234,4 +244,16 @@ fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json:
         }
     }
     (receipients, inboxes, tags, new_content)
+}
+
+fn public_activities() -> Vec<mastodon_api::Status> {
+    let database = database::establish_connection();
+
+    match timeline::public_activities(&database) {
+        Ok(activities) => activities
+            .iter()
+            .map(|activity| mastodon_api::controller::status_cached_by_id(*activity).unwrap())
+            .collect(),
+        Err(_) => Vec::new(),
+    }
 }

@@ -20,7 +20,7 @@ use regex::Regex;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
 use timeline;
-use timeline::{get_home_timeline, get_public_timeline};
+use timeline::{home_timeline as get_home_timeline, public_timeline as get_public_timeline};
 
 pub fn account_json_by_id(id: i64) -> JsonValue {
     let database = database::establish_connection();
@@ -111,7 +111,7 @@ pub fn account_statuses_json_by_id(
 
     match actor::get_actor_by_id(&database, id) {
         Ok(actor) => {
-            match timeline::get_user_timeline(&database, actor, max_id, since_id, min_id, limit) {
+            match timeline::user_timeline(&database, actor, max_id, since_id, min_id, limit) {
                 Ok(statuses) => {
                     let mut serialized_statuses: Vec<Status> = vec![];
 
@@ -345,6 +345,13 @@ pub fn serialize_account(mut actor: actor::Actor, include_source: bool) -> Accou
 
 pub fn serialize_status(activity: activity::Activity) -> Result<Status, ()> {
     serialize_status_from_activitystreams(activity)
+}
+
+pub fn status_cached_by_id(id: i64) -> Result<Status, String> {
+    match status_by_id(id) {
+        Ok(status) => Ok(serde_json::from_value(status).unwrap()),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn status_json_by_id(id: i64) -> JsonValue {
@@ -683,13 +690,6 @@ fn status_by_id(id: i64) -> Result<serde_json::Value, String> = {
         Err(_) => Err(format!("Status not found: {}", &id)),
     }
 }
-}
-
-fn status_cached_by_id(id: i64) -> Result<Status, String> {
-    match status_by_id(id) {
-        Ok(status) => Ok(serde_json::from_value(status).unwrap()),
-        Err(e) => Err(e),
-    }
 }
 
 fn status_children_for_id(

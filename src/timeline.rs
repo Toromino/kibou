@@ -7,7 +7,7 @@ use diesel::query_dsl::RunQueryDsl;
 use diesel::sql_query;
 use env;
 
-pub fn get_home_timeline(
+pub fn home_timeline(
     db_connection: &PgConnection,
     actor: Actor,
     max_id: Option<i64>,
@@ -38,7 +38,7 @@ pub fn get_home_timeline(
          LIMIT {limit};",
         followees = followees.join("','"),
         actor_uri = actor.actor_uri,
-        id = get_id_order_query(max_id, since_id, min_id),
+        id = prepare_order_query(max_id, since_id, min_id),
         limit = runtime_escape(&limit.to_string())
     ))
     .load::<QueryActivityId>(db_connection)
@@ -48,7 +48,26 @@ pub fn get_home_timeline(
     }
 }
 
-pub fn get_public_timeline(
+pub fn public_activities(db_connection: &PgConnection) -> Result<Vec<i64>, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT id \
+         FROM activities \
+         WHERE data @> '{{\"type\": \"Create\"}}' OR \
+         data @> '{{\"type\": \"Announce\"}}' AND \
+         data -> 'to' ? 'https://www.w3.org/ns/activitystreams#Public' \
+         AND data->>'actor' LIKE '{base_scheme}://{base_domain}/%' \
+         LIMIT 20;",
+        base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+        base_domain = env::get_value(String::from("endpoint.base_domain"))
+    ))
+    .load::<QueryActivityId>(db_connection)
+    {
+        Ok(activities) => Ok(activities.iter().map(|activity| activity.id).collect()),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn public_timeline(
     db_connection: &PgConnection,
     local: bool,
     only_media: bool,
@@ -80,7 +99,7 @@ pub fn get_public_timeline(
          {id} \
          LIMIT {limit};",
         local = local,
-        id = get_id_order_query(max_id, since_id, min_id),
+        id = prepare_order_query(max_id, since_id, min_id),
         limit = runtime_escape(&limit.to_string())
     ))
     .load::<QueryActivityId>(db_connection)
@@ -90,7 +109,7 @@ pub fn get_public_timeline(
     }
 }
 
-pub fn get_user_timeline(
+pub fn user_timeline(
     db_connection: &PgConnection,
     actor: Actor,
     max_id: Option<i64>,
@@ -115,7 +134,7 @@ pub fn get_user_timeline(
          {id} \
          LIMIT {limit};",
         actor_uri = runtime_escape(&actor.actor_uri),
-        id = get_id_order_query(max_id, since_id, min_id),
+        id = prepare_order_query(max_id, since_id, min_id),
         limit = runtime_escape(&limit.to_string())
     ))
     .load::<QueryActivityId>(db_connection)
@@ -125,7 +144,7 @@ pub fn get_user_timeline(
     }
 }
 
-fn get_id_order_query(max_id: Option<i64>, since_id: Option<i64>, min_id: Option<i64>) -> String {
+fn prepare_order_query(max_id: Option<i64>, since_id: Option<i64>, min_id: Option<i64>) -> String {
     if max_id.is_some() {
         format!(
             "AND id < {} ORDER BY id DESC",
