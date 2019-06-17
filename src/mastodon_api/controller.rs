@@ -168,7 +168,7 @@ pub fn follow(token: &str, target_id: i64) -> Result<Relationship, &'static str>
             Ok(actor) => {
                 let followee = actor::get_actor_by_id(&database, target_id).unwrap();
 
-                kibou_api::follow(actor.actor_uri, followee.actor_uri);
+                kibou_api::follow(&actor.actor_uri, &followee.actor_uri);
                 return Ok(Relationship {
                     id: followee.id.to_string(),
                     following: true,

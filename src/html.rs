@@ -1,6 +1,6 @@
 use regex::Regex;
 
-pub fn strip_tags(input: String) -> String {
+pub fn strip_tags(input: &str) -> String {
     let allowed_tags = vec!["a", "b", "br", "em", "img", "strong", "u"];
     let forbidden_attributes = vec![
         "onabort",
@@ -75,7 +75,7 @@ pub fn strip_tags(input: String) -> String {
         "onwaiting",
         "onwheel",
     ];
-    let mut output: String = input.clone();
+    let mut output: String = input.to_string();
     let tag_regex: Regex = Regex::new("<[^>]*>").unwrap();
 
     for tag in tag_regex.captures_iter(&input) {
