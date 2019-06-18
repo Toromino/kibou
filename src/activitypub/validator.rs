@@ -190,7 +190,7 @@ fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
     }
 
     new_object = serde_json::from_value(object.clone()).unwrap();
-    new_object.content = html::strip_tags(new_object.content);
+    new_object.content = html::strip_tags(&new_object.content);
     new_object.context = None;
     new_object.to = normalize_public_addressing(new_object.to);
     new_object.cc = normalize_public_addressing(new_object.cc);

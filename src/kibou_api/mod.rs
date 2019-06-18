@@ -6,7 +6,7 @@
 
 pub mod routes;
 
-use activity::{get_activity_by_id, get_ap_activity_by_id};
+use activity::{get_activity_by_id, get_ap_activity_by_id, get_ap_object_by_id};
 use activitypub::activity::Tag;
 use activitypub::actor::{add_follow, remove_follow};
 use activitypub::controller as ap_controller;
@@ -21,15 +21,15 @@ use rocket_contrib::json::JsonValue;
 use timeline;
 use web_handler::federator;
 
-pub fn follow(actor: String, object: String) {
+pub fn follow(sender: &str, receipient: &str) {
     let database = database::establish_connection();
-    let serialized_actor: Actor = get_actor_by_uri(&database, &actor).unwrap();
+    let serialized_actor: Actor = get_actor_by_uri(&database, &sender).unwrap();
 
-    if actor != object {
-        match get_actor_by_uri(&database, &object) {
+    if sender != receipient {
+        match get_actor_by_uri(&database, &receipient) {
             Ok(followee) => {
-                if !is_actor_followed_by(&database, &followee, &actor).unwrap() {
-                    let activitypub_activity_follow = ap_controller::follow(&actor, &object);
+                if !is_actor_followed_by(&database, &followee, &sender).unwrap() {
+                    let activitypub_activity_follow = ap_controller::follow(sender, receipient);
 
                     if !followee.local {
                         federator::enqueue(
@@ -38,7 +38,7 @@ pub fn follow(actor: String, object: String) {
                             vec![followee.inbox.unwrap()],
                         );
                     } else {
-                        add_follow(&object, &actor, &activitypub_activity_follow.id);
+                        add_follow(receipient, sender, &activitypub_activity_follow.id);
                     }
                 }
             }
@@ -65,7 +65,7 @@ pub fn status_build(
     let mut inboxes: Vec<String> = Vec::new();
     let mut tags: Vec<serde_json::Value> = Vec::new();
 
-    let parsed_mentions = parse_mentions(html::strip_tags(content));
+    let parsed_mentions = parse_mentions(html::strip_tags(&content));
     direct_receipients.extend(parsed_mentions.0);
     inboxes.extend(parsed_mentions.1);
     tags.extend(parsed_mentions.2);
@@ -113,7 +113,7 @@ pub fn status_build(
     );
     let activitypub_activity_create = ap_controller::create(
         &actor,
-        serde_json::to_value(activitypub_note).unwrap(),
+        serde_json::to_value(&activitypub_note).unwrap(),
         direct_receipients,
         receipients,
     );
@@ -123,7 +123,7 @@ pub fn status_build(
         inboxes,
     );
 
-    return get_ap_activity_by_id(&database, &activitypub_activity_create.id)
+    return get_ap_object_by_id(&database, &activitypub_note.id)
         .unwrap()
         .id;
 }
@@ -205,7 +205,7 @@ fn handle_in_reply_to(local_id: Option<String>) -> Option<String> {
 }
 
 fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json::Value>, String) {
-    let acct_regex = Regex::new(r"@[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+\w").unwrap();
+    let acct_regex = Regex::new(r"@[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+\w)?").unwrap();
     let database = database::establish_connection();
 
     let mut receipients: Vec<String> = vec![];
@@ -236,7 +236,7 @@ fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json:
                     &format!(
                         "<a class=\"mention\" href=\"{uri}\">{acct}</a>",
                         uri = actor.actor_uri,
-                        acct = mention.get(0).unwrap().as_str()
+                        acct = format!("@{}", actor.preferred_username)
                     ),
                 );
             }
