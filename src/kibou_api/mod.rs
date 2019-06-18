@@ -6,11 +6,14 @@
 
 pub mod routes;
 
-use activity::{get_activity_by_id, get_ap_activity_by_id, get_ap_object_by_id};
-use activitypub::activity::Tag;
+use activity::{
+    get_activity_by_id, get_ap_activity_by_id, get_ap_object_by_id, type_exists_for_object_id,
+};
+use activitypub::activity::{serialize_from_internal_activity, Tag};
 use activitypub::actor::{add_follow, remove_follow};
 use activitypub::controller as ap_controller;
-use actor::{get_actor_by_acct, get_actor_by_uri, is_actor_followed_by, Actor};
+use activitypub::routes::object;
+use actor::{get_actor_by_acct, get_actor_by_id, get_actor_by_uri, is_actor_followed_by, Actor};
 use database;
 use diesel::PgConnection;
 use html;
@@ -41,6 +44,59 @@ pub fn follow(sender: &str, receipient: &str) {
                     } else {
                         add_follow(receipient, sender, &activitypub_activity_follow.id);
                     }
+                }
+            }
+            Err(_) => (),
+        }
+    }
+}
+
+pub fn react(actor: &i64, _type: &str, object_id: &str) {
+    let database = database::establish_connection();
+    let serialized_actor: Actor = get_actor_by_id(&database, actor).expect("Actor should exist!");
+
+    if !type_exists_for_object_id(&database, _type, &serialized_actor.actor_uri, object_id)
+        .unwrap_or_else(|_| true)
+    {
+        match get_ap_object_by_id(&database, object_id) {
+            Ok(activity) => {
+                let ap_activity = serialize_from_internal_activity(activity);
+
+                let mut to: Vec<String> = ap_activity.to.clone();
+                let mut cc: Vec<String> = ap_activity.cc.clone();
+                let mut inboxes: Vec<String> = Vec::new();
+
+                to.retain(|x| x != &format!("{}/followers", &ap_activity.actor));
+                cc.retain(|x| x != &format!("{}/followers", &ap_activity.actor));
+
+                if to.contains(&"https://www.w3.org/ns/activitystreams#Public".to_string()) {
+                    cc.push(format!("{}/followers", serialized_actor.actor_uri));
+                    inboxes = handle_follower_inboxes(&database, &serialized_actor.followers);
+                } else if cc.contains(&"https://www.w3.org/ns/activitystreams#Public".to_string()) {
+                    to.push(format!("{}/followers", serialized_actor.actor_uri));
+                    inboxes = handle_follower_inboxes(&database, &serialized_actor.followers);
+                }
+
+                match _type {
+                    "Announce" => {
+                        let new_activity =
+                            ap_controller::announce(&serialized_actor.actor_uri, object_id, to, cc);
+                        federator::enqueue(
+                            serialized_actor,
+                            serde_json::json!(&new_activity),
+                            inboxes,
+                        );
+                    }
+                    "Like" => {
+                        let new_activity =
+                            ap_controller::like(&serialized_actor.actor_uri, object_id, to, cc);
+                        federator::enqueue(
+                            serialized_actor,
+                            serde_json::json!(&new_activity),
+                            inboxes,
+                        );
+                    }
+                    _ => (),
                 }
             }
             Err(_) => (),

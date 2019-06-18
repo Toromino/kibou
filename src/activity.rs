@@ -174,6 +174,30 @@ pub fn get_ap_object_replies_by_id(
     }
 }
 
+pub fn type_exists_for_object_id(
+    db_connection: &PgConnection,
+    _type: &str,
+    actor: &str,
+    object_id: &str,
+) -> Result<bool, diesel::result::Error> {
+    match sql_query(format!(
+        "SELECT * FROM activities WHERE data->'type' = '{}' AND data->'actor' = '{}' AND data->'object' = '{}' LIMIT 1;",
+        _type, runtime_escape(actor), runtime_escape(object_id)
+    ))
+        .clone()
+        .load::<QueryActivity>(db_connection)
+        {
+            Ok(activity) => {
+                if !activity.is_empty() {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            Err(e) => Err(e),
+        }
+}
+
 pub fn serialize_activity(sql_activity: QueryActivity) -> Activity {
     Activity {
         id: sql_activity.id,

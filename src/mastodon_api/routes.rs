@@ -19,7 +19,7 @@ pub fn options_account(id: i64) -> JsonValue {
 
 #[post("/api/v1/accounts/<id>/follow")]
 pub fn account_follow(_token: AuthorizationHeader, id: i64) -> JsonValue {
-    controller::follow_json(parse_authorization_header(&_token.to_string()), id)
+    controller::follow(parse_authorization_header(&_token.to_string()), id)
 }
 
 #[get("/api/v1/accounts/<id>/statuses?<only_media>&<pinned>&<exclude_replies>&<max_id>&<since_id>&<min_id>&<limit>&<exclude_reblogs>")]
@@ -136,12 +136,22 @@ pub fn status_context(id: i64) -> JsonValue {
     controller::context_json_for_id(id)
 }
 
+#[post("/api/v1/statuses/<id>/favourite")]
+pub fn status_favourite(_token: AuthorizationHeader, id: i64) -> JsonValue {
+    controller::favourite(parse_authorization_header(&_token.to_string()), id)
+}
+
 #[post("/api/v1/statuses", data = "<form>")]
 pub fn status_post(form: LenientForm<StatusForm>, _token: AuthorizationHeader) -> JsonValue {
     controller::status_post(
         form.into_inner(),
         parse_authorization_header(&_token.to_string()),
     )
+}
+
+#[post("/api/v1/statuses/<id>/reblog")]
+pub fn status_reblog(_token: AuthorizationHeader, id: i64) -> JsonValue {
+    controller::reblog(parse_authorization_header(&_token.to_string()), id)
 }
 
 #[get("/api/v1/timelines/home?<max_id>&<since_id>&<min_id>&<limit>")]

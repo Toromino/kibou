@@ -1,5 +1,5 @@
 use activity;
-use activity::{get_ap_object_by_id, get_ap_object_replies_by_id};
+use activity::{get_ap_object_by_id, get_ap_object_replies_by_id, type_exists_for_object_id};
 use activitypub;
 use actor;
 use actor::get_actor_by_id;
@@ -25,7 +25,7 @@ use timeline::{home_timeline as get_home_timeline, public_timeline as get_public
 pub fn account_json_by_id(id: i64) -> JsonValue {
     let database = database::establish_connection();
 
-    match actor::get_actor_by_id(&database, id) {
+    match actor::get_actor_by_id(&database, &id) {
         Ok(actor) => json!(serialize_account(actor, false)),
         Err(_) => json!({"error": "User not found."}),
     }
@@ -110,7 +110,7 @@ pub fn account_statuses_json_by_id(
 ) -> JsonValue {
     let database = database::establish_connection();
 
-    match actor::get_actor_by_id(&database, id) {
+    match actor::get_actor_by_id(&database, &id) {
         Ok(actor) => {
             match timeline::user_timeline(&database, actor, max_id, since_id, min_id, limit) {
                 Ok(statuses) => {
@@ -154,23 +154,35 @@ pub fn context_json_for_id(id: i64) -> JsonValue {
     }
 }
 
-pub fn follow_json(token: String, id: i64) -> JsonValue {
-    match follow(&token, id) {
-        Ok(relationship) => json!(relationship),
-        Err(e) => json!({ "error": e }),
+pub fn favourite(token: String, id: i64) -> JsonValue {
+    let database = database::establish_connection();
+
+    match activity::get_activity_by_id(&database, id) {
+        Ok(activity) => match account_by_oauth_token(token) {
+            Ok(account) => {
+                kibou_api::react(
+                    &account.id.parse::<i64>().unwrap(),
+                    "Like",
+                    activity.data["object"]["id"].as_str().unwrap(),
+                );
+                json!(status_cached_by_id(id))
+            }
+            Err(_) => json!({"error": "Token invalid!"}),
+        },
+        Err(_) => json!({"error": "Status not found"}),
     }
 }
 
-pub fn follow(token: &str, target_id: i64) -> Result<Relationship, &'static str> {
+pub fn follow(token: String, id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token.to_string()) {
         Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
-                let followee = actor::get_actor_by_id(&database, target_id).unwrap();
+                let followee = actor::get_actor_by_id(&database, &id).unwrap();
 
                 kibou_api::follow(&actor.actor_uri, &followee.actor_uri);
-                return Ok(Relationship {
+                return json!(Relationship {
                     id: followee.id.to_string(),
                     following: true,
                     followed_by: false,
@@ -180,9 +192,9 @@ pub fn follow(token: &str, target_id: i64) -> Result<Relationship, &'static str>
                     requested: false,
                 });
             }
-            Err(_) => Err("User not found."),
+            Err(_) => json!({"error": "User not found."}),
         },
-        Err(_) => Err("Token invalid!"),
+        Err(_) => json!({"error": "Token invalid!"}),
     }
 }
 
@@ -207,6 +219,25 @@ pub fn relationships_json_by_token(token: &str, ids: Vec<i64>) -> JsonValue {
     }
 }
 
+pub fn reblog(token: String, id: i64) -> JsonValue {
+    let database = database::establish_connection();
+
+    match activity::get_activity_by_id(&database, id) {
+        Ok(activity) => match account_by_oauth_token(token) {
+            Ok(account) => {
+                kibou_api::react(
+                    &account.id.parse::<i64>().unwrap(),
+                    "Announce",
+                    activity.data["object"]["id"].as_str().unwrap(),
+                );
+                json!(status_cached_by_id(id))
+            }
+            Err(_) => json!({"error": "Token invalid!"}),
+        },
+        Err(_) => json!({"error": "Status not found"}),
+    }
+}
+
 pub fn relationships_by_token(
     token: &str,
     ids: Vec<i64>,
@@ -223,7 +254,7 @@ pub fn relationships_by_token(
                     actor::get_actor_followees(&database, &actor.actor_uri).unwrap();
 
                 for id in ids {
-                    let follower_actor = actor::get_actor_by_id(&database, id).unwrap();
+                    let follower_actor = actor::get_actor_by_id(&database, &id).unwrap();
 
                     match activitypub_followers.iter().position(|ref follower| {
                         follower["href"].as_str().unwrap() == follower_actor.actor_uri
@@ -391,7 +422,7 @@ pub fn unfollow(token: String, target_id: i64) -> JsonValue {
     match verify_token(&database, token) {
         Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
             Ok(actor) => {
-                let followee = actor::get_actor_by_id(&database, target_id).unwrap();
+                let followee = actor::get_actor_by_id(&database, &target_id).unwrap();
 
                 kibou_api::unfollow(actor.actor_uri, followee.actor_uri);
                 return json!(Relationship {
@@ -451,7 +482,7 @@ fn count_followees(db_connection: &PgConnection, account_id: &i64) -> i64 {
 }
 
 fn count_followers(db_connection: &PgConnection, account_id: &i64) -> i64 {
-    match get_actor_by_id(db_connection, *account_id) {
+    match get_actor_by_id(db_connection, account_id) {
         Ok(actor) => {
             let activitypub_followers: Vec<serde_json::Value> =
                 serde_json::from_value(actor.followers["activitypub"].to_owned())
@@ -581,7 +612,7 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
     let serialized_activity: activitypub::activity::Activity =
         serde_json::from_value(activity.data).unwrap();
     let serialized_account =
-        account_cached_by_uri(Box::leak(activity.actor.into_boxed_str())).unwrap();
+        account_cached_by_uri(Box::leak(activity.actor.clone().into_boxed_str())).unwrap();
 
     match serialized_activity._type.as_str() {
         "Create" => {
@@ -627,8 +658,24 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
                 replies_count: count_replies(&database, &serialized_object.id),
                 reblogs_count: count_reblogs(&database, &serialized_object.id),
                 favourites_count: count_favourites(&database, &serialized_object.id),
-                reblogged: Some(false),
-                favourited: Some(false),
+                reblogged: Some(
+                    type_exists_for_object_id(
+                        &database,
+                        "Announce",
+                        &activity.actor,
+                        &serialized_object.id,
+                    )
+                    .unwrap_or_else(|_| false),
+                ),
+                favourited: Some(
+                    type_exists_for_object_id(
+                        &database,
+                        "Like",
+                        &activity.actor,
+                        &serialized_object.id,
+                    )
+                    .unwrap_or_else(|_| false),
+                ),
                 muted: Some(false),
                 sensitive: serialized_object.sensitive.unwrap_or_else(|| false),
                 spoiler_text: String::new(),
