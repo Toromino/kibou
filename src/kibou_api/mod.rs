@@ -18,6 +18,7 @@ use mastodon_api;
 use regex::Regex;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
+use std::thread;
 use timeline;
 use web_handler::federator;
 
@@ -117,11 +118,13 @@ pub fn status_build(
         direct_receipients,
         receipients,
     );
-    federator::enqueue(
-        serialized_actor,
-        serde_json::json!(&activitypub_activity_create),
-        inboxes,
-    );
+    thread::spawn(move || {
+        federator::enqueue(
+            serialized_actor,
+            serde_json::json!(&activitypub_activity_create),
+            inboxes,
+        );
+    });
 
     return get_ap_object_by_id(&database, &activitypub_note.id)
         .unwrap()
