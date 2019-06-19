@@ -108,7 +108,7 @@ pub fn home_timeline(token: &str) -> Result<Vec<Status>, ()> {
                 None,
                 None,
                 None,
-                None,
+                Some(40),
                 AuthorizationHeader(token.to_string()),
             )
             .to_string(),
@@ -124,7 +124,7 @@ pub fn home_timeline(token: &str) -> Result<Vec<Status>, ()> {
 pub fn get_public_timeline(local: bool) -> Result<Vec<Status>, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::public_timeline(Some(local), None, None, None, None, None).to_string(),
+            &routes::public_timeline(Some(local), None, None, None, None, Some(40)).to_string(),
         ) {
             Ok(timeline) => Ok(timeline),
             Err(_) => Err(()),
@@ -155,7 +155,7 @@ pub fn get_user_timeline(id: String) -> Result<Vec<Status>, ()> {
                 None,
                 None,
                 None,
-                None,
+                Some(40),
                 None,
             )
             .to_string(),

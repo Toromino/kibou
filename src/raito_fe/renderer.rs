@@ -18,9 +18,16 @@ pub fn about(configuration: LocalConfiguration, authentication: Authentication) 
     context.extend(configuration);
     context.extend(prepare_authentication_context(&authentication));
     context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
-    context.insert("content".to_string(), fs::read_to_string("static/raito_fe/html/about.html").unwrap_or_else(|_| String::from("<h2>About this node</h2>
+    context.insert(
+        "content".to_string(),
+        fs::read_to_string("static/raito_fe/html/about.html").unwrap_or_else(|_| {
+            String::from(
+                "<h2>About this node</h2>
 This is a placeholder text, it can be edited in \"static/raito_fe/html/about.html\"
-")));
+",
+            )
+        }),
+    );
     return Template::render("raito_fe/about", context);
 }
 
@@ -573,6 +580,14 @@ fn prepare_authentication_context(authentication: &Authentication) -> HashMap<St
                 String::from("authenticated_account_display_name"),
                 (*account.display_name).to_string(),
             );
+            context.insert(
+                String::from("authenticated_account_avatar"),
+                (*account.avatar).to_string(),
+            );
+            context.insert(
+                String::from("authenticated_account_id"),
+                (*account.id).to_string(),
+            );
         }
         None => {
             context.insert(String::from("authenticated_account"), false.to_string());
@@ -580,6 +595,11 @@ fn prepare_authentication_context(authentication: &Authentication) -> HashMap<St
                 String::from("authenticated_account_display_name"),
                 String::from("Guest"),
             );
+            context.insert(
+                String::from("authenticated_account_avatar"),
+                String::from("/static/assets/default_avatar.png"),
+            );
+            context.insert(String::from("authenticated_account_id"), String::from(""));
         }
     }
 
@@ -650,6 +670,7 @@ fn prepare_status_context(status: Status) -> HashMap<String, String> {
         Some(reblog_status) => {
             let reblog: Status = serde_json::from_value(reblog_status).unwrap();
             context.insert(String::from("reblog_account_acct"), reblog.account.acct);
+            context.insert(String::from("reblog_account_avatar"), reblog.account.avatar);
             context.insert(
                 String::from("reblog_account_url"),
                 format!("/account/{}", reblog.id),
@@ -658,6 +679,7 @@ fn prepare_status_context(status: Status) -> HashMap<String, String> {
         }
         None => {
             context.insert(String::from("reblog_account_acct"), String::from(""));
+            context.insert(String::from("reblog_account_avatar"), String::from(""));
             context.insert(String::from("reblog_account_url"), String::from(""));
             context.insert(String::from("reblog_content"), String::from(""));
         }
