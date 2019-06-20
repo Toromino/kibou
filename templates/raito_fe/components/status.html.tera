@@ -11,7 +11,7 @@
     <div class="status-content">
     {% if status_reblog == "true" %}
     <span class="status-reblog-divider"><img class="inner-icon" src="/static/raito_fe/fonts/open-iconic/svg/loop-circular.svg">has shared</span>
-    <img src="/static/assets/default_avatar.png" class="status-reblog-avatar">
+    <img src="{{reblog_account_avatar}}" class="status-reblog-avatar">
     <a href="{{reblog_account_url}}" class="status-reblog-username">{{reblog_account_acct}}</a>
     <br />
     <p class="status-reblog-content">{{reblog_content | safe}}</p>
