@@ -18,6 +18,7 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor {
         local: true,
         followers: serde_json::json!({"activitypub": []}),
         created: Utc::now().naive_utc(),
+        modified: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut test_actor);
@@ -29,7 +30,7 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor {
 
 pub fn delete_test_actor(mut actor: actor::Actor) {
     let database = database::establish_connection();
-    actor::delete(&database, &mut actor);
+    actor::delete(&database, actor);
 }
 
 pub fn create_remote_test_actor(username: &str) -> actor::Actor {
@@ -48,6 +49,7 @@ pub fn create_remote_test_actor(username: &str) -> actor::Actor {
         local: false,
         followers: serde_json::json!({"activitypub": []}),
         created: Utc::now().naive_utc(),
+        modified: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut test_actor);

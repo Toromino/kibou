@@ -1,10 +1,13 @@
 use activitypub::activity::Activity;
+use activitypub::validator;
 use actor;
+use chrono::Duration;
 use chrono::Utc;
 use database;
 use env;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
+use web_handler;
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
 #[allow(non_snake_case)]
@@ -60,7 +63,7 @@ pub fn add_follow(account: &str, source: &str, activity_id: &str) {
         follow_data.push(new_follow_data);
 
         actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
-        actor::update_followers(&database, &mut actor);
+        actor::update_followers(&database, actor);
     }
 }
 
@@ -80,13 +83,41 @@ pub fn remove_follow(account: &str, source: &str) {
         follow_data.remove(index);
 
         actor.followers["activitypub"] = serde_json::to_value(follow_data).unwrap();
-        actor::update_followers(&database, &mut actor);
+        actor::update_followers(&database, actor);
     }
 }
 
 // Refetches remote actor and detects changes to icon, username, keys and summary
-// [TODO]
-pub fn refresh() {}
+pub fn refresh(uri: String) {
+    std::thread::spawn(move || {
+        let expiration_time: chrono::DateTime<Utc> = Utc::now() - Duration::days(2);
+        let database = database::establish_connection();
+        let actor =
+            actor::get_actor_by_uri(&database, &uri).expect("Actor with this URI does not exist");
+
+        if actor.modified.timestamp() <= expiration_time.timestamp() && !actor.local {
+            println!("Refreshing actor {}", uri);
+
+            match web_handler::fetch_remote_object(&uri.to_string()) {
+                Ok(object) => {
+                    let parsed_object: serde_json::Value = serde_json::from_str(&object).unwrap();
+
+                    match validator::validate_actor(parsed_object) {
+                        Ok(actor) => {
+                            let serialized_actor: Actor = serde_json::from_value(actor).unwrap();
+
+                            actor::update(&database, create_internal_actor(serialized_actor));
+                        }
+                        Err(_) => {
+                            eprintln!("Unable to refresh actor, remote object is invalid: {}", uri)
+                        }
+                    }
+                }
+                Err(_) => eprintln!("Unable to refresh actor: {}", uri),
+            }
+        }
+    });
+}
 
 pub fn get_json_by_preferred_username(preferred_username: &str) -> serde_json::Value {
     let database = database::establish_connection();
@@ -182,5 +213,6 @@ pub fn create_internal_actor(ap_actor: Actor) -> actor::Actor {
         keys: serde_json::json!({"public" : ap_actor.publicKey["publicKeyPem"]}),
         followers: serde_json::json!({"activitypub": []}),
         created: Utc::now().naive_utc(),
+        modified: Utc::now().naive_utc(),
     }
 }
