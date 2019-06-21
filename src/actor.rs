@@ -31,6 +31,7 @@ pub struct Actor {
     pub local: bool,
     pub keys: serde_json::Value,
     pub created: NaiveDateTime,
+    pub modified: NaiveDateTime,
 }
 
 impl Actor {
@@ -130,6 +131,7 @@ fn serialize_actor(sql_actor: QueryActor) -> Actor {
         local: sql_actor.local,
         followers: sql_actor.followers,
         created: sql_actor.created,
+        modified: sql_actor.modified,
     }
 }
 
@@ -235,17 +237,29 @@ pub fn create_actor(db_connection: &PgConnection, actor: &mut Actor) {
 /// Tests for this function are at `tests/actor.rs`
 /// - delete_local_actor()
 /// - delete_remote_actor()
-pub fn delete(db_connection: &PgConnection, actor: &mut Actor) {
+pub fn delete(db_connection: &PgConnection, actor: Actor) {
     diesel::delete(actors.filter(actor_uri.eq(&actor.actor_uri)))
         .execute(db_connection)
-        .expect("Error deleting user");
+        .expect("Could not delete actor");
 }
 
-pub fn update_followers(db_connection: &PgConnection, actor: &mut Actor) {
+pub fn update(db_connection: &PgConnection, actor: Actor) {
+    diesel::update(actors.filter(actor_uri.eq(&actor.actor_uri)))
+        .set((
+            username.eq(&actor.username),
+            summary.eq(&actor.summary),
+            icon.eq(&actor.icon),
+            keys.eq(&actor.keys),
+        ))
+        .execute(db_connection)
+        .expect("Could not update actor");
+}
+
+pub fn update_followers(db_connection: &PgConnection, actor: Actor) {
     diesel::update(actors.filter(actor_uri.eq(&actor.actor_uri)))
         .set(followers.eq(&actor.followers))
         .execute(db_connection)
-        .expect("Error updating followers");
+        .expect("Error occured while updating followers");
 }
 
 pub fn get_actor_by_acct(

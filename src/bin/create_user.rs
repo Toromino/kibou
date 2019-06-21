@@ -58,6 +58,7 @@ fn main() {
         local: true,
         keys: serde_json::json!({}),
         created: Utc::now().naive_utc(),
+        modified: Utc::now().naive_utc(),
     };
 
     actor::create_actor(&database, &mut new_actor)

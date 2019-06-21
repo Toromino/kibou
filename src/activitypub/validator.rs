@@ -1,3 +1,4 @@
+use activitypub;
 use activitypub::activity::Activity;
 use activitypub::activity::Object;
 use activitypub::controller::actor_exists;
@@ -32,6 +33,7 @@ pub fn validate_activity(
 
     let valid_actor = if activity.get("actor").is_some() {
         if actor_exists(activity["actor"].as_str().unwrap()) {
+            activitypub::actor::refresh(activity["actor"].as_str().unwrap().to_string());
             true
         } else {
             fetch_object_by_id(activity["actor"].as_str().unwrap().to_string());
@@ -98,6 +100,7 @@ pub fn validate_object(
 
     let valid_actor = if object.get("attributedTo").is_some() {
         if actor_exists(object["attributedTo"].as_str().unwrap()) {
+            activitypub::actor::refresh(object["attributedTo"].as_str().unwrap().to_string());
             true
         } else {
             fetch_object_by_id(object["attributedTo"].as_str().unwrap().to_string());
