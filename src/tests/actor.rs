@@ -210,6 +210,7 @@ fn create_actor_with_optional_values() {
         local: false,
         followers: serde_json::json!({"activitypub": []}),
         created: Utc::now().naive_utc(),
+        modified: Utc::now().naive_utc()
     };
 
     let email = test_actor.email.clone();

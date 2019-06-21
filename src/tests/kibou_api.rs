@@ -14,7 +14,7 @@ fn follow() {
     let test_follower_1 = create_local_test_actor("d530d627-ad50-4780-bae4-7e475d924970");
     let test_follower_1_uri = test_follower_1.actor_uri.clone();
 
-    kibou_api::follow(test_follower_1_uri.clone(), test_actor_uri);
+    kibou_api::follow(&test_follower_1_uri, &test_actor_uri);
 
     let serialized_test_actor = actor::get_actor_by_uri(&database, &test_actor.actor_uri).unwrap();
     let activitypub_followers: serde_json::Value =

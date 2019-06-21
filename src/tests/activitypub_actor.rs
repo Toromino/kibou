@@ -141,7 +141,7 @@ fn create_internal_actor_with_empty_icon_url() {
         publicKey: serde_json::json!({}),
         url: String::from("https://example.tld/actors/277a152b-0575-437e-add5-18c2aa5585c9"),
         icon: Some(serde_json::json!({"type": "Image", "url": null})),
-        endpoints: serde_json::json!({}),
+        endpoints: None,
     };
 
     internal_actor::create_actor(&database, &mut actor::create_internal_actor(actor));
