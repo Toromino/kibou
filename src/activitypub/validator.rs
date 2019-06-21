@@ -168,6 +168,14 @@ pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'s
 }
 
 fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
+    if activity["to"].is_string() {
+        activity["to"] = serde_json::json!(vec![activity["to"].as_str().unwrap().to_string()]);
+    }
+
+    if activity["cc"].is_string() {
+        activity["cc"] = serde_json::json!(vec![activity["cc"].as_str().unwrap().to_string()]);
+    }
+
     let mut new_activity: Activity;
 
     if activity.get("cc").is_none() {
@@ -184,6 +192,14 @@ fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
 }
 
 fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
+    if object["to"].is_string() {
+        object["to"] = serde_json::json!(vec![object["to"].as_str().unwrap().to_string()]);
+    }
+
+    if object["cc"].is_string() {
+        object["cc"] = serde_json::json!(vec![object["cc"].as_str().unwrap().to_string()]);
+    }
+
     let mut new_object: Object;
 
     if object.get("cc").is_none() {
