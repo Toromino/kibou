@@ -28,6 +28,7 @@ pub mod env;
 mod html;
 mod kibou_api;
 mod mastodon_api;
+mod notification;
 mod oauth;
 pub mod raito_fe;
 mod tests;

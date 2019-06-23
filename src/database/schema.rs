@@ -28,6 +28,16 @@ table! {
 }
 
 table! {
+    notifications (id) {
+        id -> Int8,
+        activity_id -> Int8,
+        actor_id -> Int8,
+        created -> Timestamp,
+        modified -> Timestamp,
+    }
+}
+
+table! {
     oauth_applications (id) {
         id -> Int8,
         client_name -> Nullable<Varchar>,
@@ -66,9 +76,13 @@ table! {
     }
 }
 
+joinable!(notifications -> activities (activity_id));
+joinable!(notifications -> actors (actor_id));
+
 allow_tables_to_appear_in_same_query!(
     activities,
     actors,
+    notifications,
     oauth_applications,
     oauth_authorizations,
     oauth_tokens,
