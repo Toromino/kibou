@@ -36,10 +36,12 @@ pub fn nodeinfo_v2() -> JsonValue {
             "name": env!("CARGO_PKG_NAME")
         },
         "protocols": [
-        "activitypub"
+        "activitypub",
+        "litepub"
         ],
         "nodeName": env::get_value(String::from("node.name")),
         "nodeDescription": env::get_value(String::from("node.description")),
+        "nodeContactEmail": env::get_value(String::from("node.contact_email")),
         "services":{
             "outbound": [
 
@@ -56,12 +58,12 @@ pub fn nodeinfo_v2() -> JsonValue {
             "localPosts": get_local_posts()
         },
         "metadata": {
-
-        },
-        "features": [
+            "features": [
+            "kibou_api",
             "mastodon_api",
             "webfinger"
         ]
+        }
     })
 }
 
@@ -78,10 +80,12 @@ pub fn nodeinfo_v2_1() -> JsonValue {
             "repository": "https://git.cybre.club/kibouproject/kibou"
         },
         "protocols": [
-        "activitypub"
+        "activitypub",
+        "litepub"
         ],
         "nodeName": env::get_value(String::from("node.name")),
         "nodeDescription": env::get_value(String::from("node.description")),
+        "nodeContactEmail": env::get_value(String::from("node.contact_email")),
         "services":{
             "outbound": [
 
@@ -98,12 +102,13 @@ pub fn nodeinfo_v2_1() -> JsonValue {
             "localPosts": get_local_posts()
         },
         "metadata": {
-
-        },
-        "features": [
+    "features": [
+            "kibou_api",
             "mastodon_api",
             "webfinger"
         ]
+
+        }
     })
 }
 
