@@ -21,7 +21,7 @@ pub fn authorize(styling: Option<bool>) -> Template {
 }
 
 #[post(
-    "/oauth/authorize?<client_id>&<response_type>&<redirect_uri>&<scope>&<styling>",
+    "/oauth/authorize?<client_id>&<response_type>&<redirect_uri>&<scope>&<state>&<styling>",
     data = "<form>"
 )]
 pub fn authorize_result(
@@ -29,6 +29,7 @@ pub fn authorize_result(
     response_type: Option<String>,
     redirect_uri: Option<String>,
     scope: Option<String>,
+    state: Option<String>,
     styling: Option<bool>,
     form: LenientForm<UserForm>,
 ) -> Result<Redirect, Template> {
@@ -37,6 +38,7 @@ pub fn authorize_result(
         client_id,
         response_type,
         redirect_uri,
+        state,
         styling,
     )
 }

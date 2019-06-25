@@ -58,6 +58,7 @@ pub fn handle_user_authorization(
     client_id: Option<String>,
     response_type: Option<String>,
     redirect_uri: Option<String>,
+    state: Option<String>,
     styling: Option<bool>,
 ) -> Result<Redirect, Template> {
     let db_connection = database::establish_connection();
@@ -69,6 +70,10 @@ pub fn handle_user_authorization(
                     let redirect_uri = redirect_uri.unwrap();
                     let auth_code =
                         authorize_application(user_form.username, serialized_application.id);
+                    let state = match state {
+                        Some(value) => format!("&state={}", value),
+                        None => String::from(""),
+                    };
                     let mut symbol = if redirect_uri.contains("?") {
                         "&".to_string()
                     } else {
@@ -76,10 +81,11 @@ pub fn handle_user_authorization(
                     };
 
                     Ok(Redirect::to(format!(
-                        "{uri}{symbol}code={code}",
+                        "{uri}{symbol}code={code}{state}",
                         uri = redirect_uri,
                         symbol = symbol,
-                        code = auth_code
+                        code = auth_code,
+                        state = state
                     )))
                 }
                 Err(_) => Err(user_authorization_error(
