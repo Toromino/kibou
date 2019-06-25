@@ -91,6 +91,16 @@ pub fn application(form: LenientForm<ApplicationForm>) -> JsonValue {
     })
 }
 
+#[get("/api/v1/custom_emojis")]
+pub fn custom_emojis() -> JsonValue {
+    return controller::unsupported_endpoint();
+}
+
+#[get("/api/v1/filters")]
+pub fn filters() -> JsonValue {
+    return controller::unsupported_endpoint();
+}
+
 #[options("/api/v1/apps", data = "<form>")]
 pub fn options_application(form: LenientForm<ApplicationForm>) -> JsonValue {
     application(form)
@@ -99,6 +109,11 @@ pub fn options_application(form: LenientForm<ApplicationForm>) -> JsonValue {
 #[get("/api/v1/instance")]
 pub fn instance() -> JsonValue {
     get_instance_info()
+}
+
+#[get("/api/v1/notifications")]
+pub fn notifications() -> JsonValue {
+    return controller::unsupported_endpoint();
 }
 
 #[options("/api/v1/instance")]
