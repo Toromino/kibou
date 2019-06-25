@@ -80,7 +80,7 @@ pub fn handle_user_authorization(
                         "?".to_string()
                     };
 
-                    Ok(Redirect::to(format!(
+                    Ok(Redirect::found(format!(
                         "{uri}{symbol}code={code}{state}",
                         uri = redirect_uri,
                         symbol = symbol,
