@@ -410,6 +410,12 @@ pub fn unfollow(token: String, target_id: i64) -> JsonValue {
     }
 }
 
+// This function is used to return an empty array on endpoints which are not yet implemented, this
+// happens to prevent breaking Mastodon_API-compatible clients
+pub fn unsupported_endpoint() -> JsonValue {
+    return json!([]);
+}
+
 cached! {
     MASTODON_API_ACCOUNT_CACHE;
 fn account_by_uri(uri: &'static str) -> Result<serde_json::Value, String> = {

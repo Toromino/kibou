@@ -66,12 +66,20 @@ pub fn handle_user_authorization(
         match actor::authorize(&db_connection, &user_form.username, user_form.password) {
             Ok(true) => match get_application_by_client_id(&db_connection, client_id.unwrap()) {
                 Ok(serialized_application) => {
-                    let authorization_code =
+                    let redirect_uri = redirect_uri.unwrap();
+                    let auth_code =
                         authorize_application(user_form.username, serialized_application.id);
+                    let mut symbol = if redirect_uri.contains("?") {
+                        "&".to_string()
+                    } else {
+                        "?".to_string()
+                    };
+
                     Ok(Redirect::to(format!(
-                        "{uri}?code={code}",
-                        uri = redirect_uri.unwrap(),
-                        code = authorization_code
+                        "{uri}{symbol}code={code}",
+                        uri = redirect_uri,
+                        symbol = symbol,
+                        code = auth_code
                     )))
                 }
                 Err(_) => Err(user_authorization_error(

@@ -38,14 +38,15 @@ pub fn count_ap_object_reactions_by_id(
 ) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
         "SELECT * FROM activities WHERE data @> '{{\"type\": \"{reaction_type}\"}}' \
-        AND data @> '{{\"object\": \"{id}\"}}';",
-                            reaction_type = runtime_escape(reaction),
-                            id = runtime_escape(object_id)))
-        .load::<QueryActivity>(db_connection)
-        {
-            Ok(activity_arr) => Ok(activity_arr.len()),
-            Err(e) => Err(e),
-        }
+         AND data @> '{{\"object\": \"{id}\"}}';",
+        reaction_type = runtime_escape(reaction),
+        id = runtime_escape(object_id)
+    ))
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn count_ap_notes_for_actor(
