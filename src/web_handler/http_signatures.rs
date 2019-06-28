@@ -18,7 +18,7 @@ pub struct HTTPSignature {
 fn get_default_header(key_id: &str, signature: &str) -> &'static str {
     Box::leak(
         format!(
-            "keyId=\"{}\",headers=\"(request-target) host date\",signature=\"{}\"",
+            "keyId=\"{}\",algorithm=\"rsa-sha256\",headers=\"(request-target) date host\",signature=\"{}\"",
             &key_id, &signature
         )
         .into_boxed_str(),
@@ -27,7 +27,7 @@ fn get_default_header(key_id: &str, signature: &str) -> &'static str {
 
 pub fn sign(actor: &mut Actor, target: String, host: String) -> &'static str {
     let request: String = format!(
-        "(request-target): post {}\nhost: {}\ndate: {}",
+        "(request-target): post {}\ndate: {}\nhost: {}",
         target,
         host,
         chrono::Utc::now().to_rfc2822().to_string()
@@ -55,9 +55,10 @@ pub fn validate(actor: &mut Actor, sig_headers: HTTPSignature) -> bool {
 
     let inner_signature = &base64::decode(&header_tags["signature"].clone().into_bytes()).unwrap();
     let mut new_signature: Vec<String> = vec![];
+    let parsed_endpoint: Vec<&str> = sig_headers.endpoint.split_whitespace().collect();
 
     if headers.contains("(request-target)") {
-        new_signature.push(format!("(request-target): {}", sig_headers.endpoint));
+        new_signature.push(format!("(request-target): post {}", parsed_endpoint[2]));
     }
 
     if headers.contains("content-length") {
