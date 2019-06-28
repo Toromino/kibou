@@ -18,8 +18,8 @@ use env;
 use std::thread;
 use url::Url;
 use uuid::Uuid;
-use web_handler;
-use web_handler::http_signatures::HTTPSignature;
+use web;
+use web::http_signatures::Signature;
 
 /// Creates a new `Accept` activity, inserts it into the database and returns the newly created activity
 ///
@@ -173,7 +173,7 @@ pub fn fetch_object_by_id(url: String) {
         Ok(remote_url) => {
             if !object_exists(&remote_url.to_string()) && !actor_exists(&remote_url.to_string()) {
                 println!("Trying to fetch document: {}", &url);
-                match web_handler::fetch_remote_object(&remote_url.to_string()) {
+                match web::fetch_remote_object(&remote_url.to_string()) {
                     Ok(object) => {
                         let parsed_object: serde_json::Value =
                             serde_json::from_str(&object).unwrap();
@@ -232,7 +232,7 @@ pub fn object_exists(object_id: &str) -> bool {
 /// # Tests
 ///
 /// [TODO]
-pub fn prepare_incoming(activity: serde_json::Value, signature: HTTPSignature) {
+pub fn prepare_incoming(activity: serde_json::Value, signature: Signature) {
     match validator::validate_activity(activity.clone(), signature) {
         Ok(sanitized_activity) => handle_activity(sanitized_activity),
         Err(_) => eprintln!("Validation failed for activity: {:?}", activity),
@@ -412,7 +412,7 @@ fn handle_activity(activity: serde_json::Value) {
                         &remote_account.actor_uri,
                         activity["id"].as_str().unwrap(),
                     );
-                    web_handler::federator::enqueue(
+                    web::federator::enqueue(
                         account,
                         accept_activity,
                         vec![remote_account.inbox.unwrap()],
@@ -431,7 +431,7 @@ fn handle_activity(activity: serde_json::Value) {
                         vec![],
                     ))
                     .unwrap();
-                    web_handler::federator::enqueue(
+                    web::federator::enqueue(
                         account,
                         accept_activity,
                         vec![remote_account.inbox.unwrap()],

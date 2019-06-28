@@ -4,6 +4,7 @@ pub mod controller;
 pub mod routes;
 pub mod validator;
 
+use base64;
 use rocket::http::ContentType;
 use rocket::http::MediaType;
 use rocket::http::Status;
@@ -11,8 +12,9 @@ use rocket::request::{self, FromRequest, Request};
 use rocket::response::{self, Responder, Response};
 use rocket::Outcome;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::Cursor;
-use web_handler::http_signatures::HTTPSignature;
+use web::http_signatures::Signature;
 
 pub struct ActivitypubMediatype(bool);
 pub struct ActivitystreamsResponse(String);
@@ -70,10 +72,10 @@ impl<'r> Responder<'r> for ActivitystreamsResponse {
     }
 }
 
-impl<'a, 'r> FromRequest<'a, 'r> for HTTPSignature {
+impl<'a, 'r> FromRequest<'a, 'r> for Signature {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<HTTPSignature, ()> {
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Signature, ()> {
         let content_length_vec: Vec<_> = request.headers().get("Content-Length").collect();
         let date_vec: Vec<_> = request.headers().get("Date").collect();
         let digest_vec: Vec<_> = request.headers().get("Digest").collect();
@@ -83,13 +85,31 @@ impl<'a, 'r> FromRequest<'a, 'r> for HTTPSignature {
         if signature_vec.is_empty() {
             return Outcome::Failure((Status::BadRequest, ()));
         } else {
-            return Outcome::Success(HTTPSignature {
-                content_length: content_length_vec.get(0).unwrap_or_else(|| &"").to_string(),
+            let parsed_signature: HashMap<String, String> = signature_vec[0]
+                .replace("\"", "")
+                .to_string()
+                .split(',')
+                .map(|kv| kv.split('='))
+                .map(|mut kv| (kv.next().unwrap().into(), kv.next().unwrap().into()))
+                .collect();
+
+            let headers: Vec<&str> = parsed_signature["headers"].split_whitespace().collect();
+            let route = request.route().unwrap().to_string();
+            let request_target: Vec<&str> = route.split_whitespace().collect();
+
+            return Outcome::Success(Signature {
+                algorithm: None,
+                content_length: Some(content_length_vec.get(0).unwrap_or_else(|| &"").to_string()),
                 date: date_vec.get(0).unwrap_or_else(|| &"").to_string(),
-                digest: digest_vec.get(0).unwrap_or_else(|| &"").to_string(),
-                endpoint: format!("post {}", request.route().unwrap().to_string()),
+                digest: Some(digest_vec.get(0).unwrap_or_else(|| &"").to_string()),
+                headers: headers.iter().map(|header| header.to_string()).collect(),
                 host: host_vec.get(0).unwrap_or_else(|| &"").to_string(),
-                signature: signature_vec[0].to_string(),
+                key_id: None,
+                request_target: Some(request_target[1].to_string()),
+                signature: String::new(),
+                signature_in_bytes: Some(
+                    base64::decode(&parsed_signature["signature"].to_owned().into_bytes()).unwrap(),
+                ),
             });
         }
     }

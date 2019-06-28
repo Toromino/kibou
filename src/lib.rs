@@ -32,7 +32,7 @@ mod oauth;
 pub mod raito_fe;
 mod tests;
 mod timeline;
-mod web_handler;
+mod web;
 mod well_known;
 
 pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {

@@ -20,7 +20,7 @@ use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
 use std::thread;
 use timeline;
-use web_handler::federator;
+use web::federator;
 
 pub fn follow(sender: &str, receipient: &str) {
     let database = database::establish_connection();
