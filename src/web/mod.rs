@@ -10,6 +10,10 @@ pub fn fetch_remote_object(url: &str) -> Result<String, reqwest::Error> {
         .get(url)
         .header(
             ACCEPT,
+            HeaderValue::from_static("application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""),
+        )
+        .header(
+            ACCEPT,
             HeaderValue::from_static("application/activity+json"),
         )
         .send();

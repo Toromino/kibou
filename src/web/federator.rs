@@ -1,4 +1,5 @@
 use actor::Actor;
+use reqwest::header::CONTENT_TYPE;
 use reqwest::header::DATE;
 use reqwest::header::HOST;
 use serde_json;
@@ -19,6 +20,7 @@ pub fn enqueue(mut actor: Actor, activity: serde_json::Value, inboxes: Vec<Strin
 
         let request = client
             .post(&inbox)
+            .header(CONTENT_TYPE, "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"")
             .header(DATE, chrono::Utc::now().to_rfc2822().to_string())
             .header(HOST, host)
             .header("Signature", signature.build_header())
