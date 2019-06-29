@@ -95,8 +95,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Signature {
                 .collect();
 
             let headers: Vec<&str> = parsed_signature["headers"].split_whitespace().collect();
-            let route = request.route().unwrap().to_string();
-            let request_target: Vec<&str> = route.split_whitespace().collect();
+            let route = request.uri().to_string();
 
             return Outcome::Success(Signature {
                 algorithm: None,
@@ -107,7 +106,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Signature {
                 headers: headers.iter().map(|header| header.to_string()).collect(),
                 host: host_vec.get(0).unwrap_or_else(|| &"").to_string(),
                 key_id: None,
-                request_target: Some(request_target[1].to_string()),
+                request_target: Some(route),
                 signature: String::new(),
                 signature_in_bytes: Some(
                     base64::decode(&parsed_signature["signature"].to_owned().into_bytes()).unwrap(),

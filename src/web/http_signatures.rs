@@ -36,7 +36,7 @@ impl Signature {
         for header in self.headers {
             match header.as_str() {
                 "(request-target)" => signature.push(format!(
-                    "(request_target): post {}",
+                    "(request-target): post {}",
                     self.request_target.as_ref().unwrap()
                 )),
                 "content-type" => signature.push(format!(
