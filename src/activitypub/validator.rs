@@ -9,12 +9,12 @@ use database;
 use html;
 use regex::Regex;
 use url::Url;
-use web_handler;
-use web_handler::http_signatures::HTTPSignature;
+use web;
+use web::http_signatures::Signature;
 
 pub fn validate_activity(
     mut activity: serde_json::Value,
-    signature: HTTPSignature,
+    signature: Signature,
 ) -> Result<serde_json::Value, &'static str> {
     let database = database::establish_connection();
     let known_type = if activity.get("type").is_some() {
@@ -43,9 +43,8 @@ pub fn validate_activity(
         false
     };
 
-    let valid_signature = web_handler::http_signatures::validate(
+    let valid_signature = signature.verify(
         &mut actor::get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap(),
-        signature,
     );
 
     let valid_object = if activity["type"].as_str() == Some("Create") {
@@ -237,7 +236,7 @@ fn parse_url(url: &str) -> Result<String, url::ParseError> {
 }
 
 fn valid_self_reference(object: &serde_json::Value, url: &str) -> bool {
-    match web_handler::fetch_remote_object(url) {
+    match web::fetch_remote_object(url) {
         Ok(remote_object) => {
             let json_object: serde_json::Value = serde_json::from_str(&remote_object).unwrap();
 

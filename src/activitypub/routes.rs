@@ -3,7 +3,7 @@ use activitypub::actor as ap_actor;
 use activitypub::controller;
 use activitypub::ActivitypubMediatype;
 use activitypub::ActivitystreamsResponse;
-use activitypub::HTTPSignature;
+use activitypub::Signature;
 use serde_json;
 
 #[get("/activities/<id>")]
@@ -17,7 +17,7 @@ pub fn actor(media_type: ActivitypubMediatype, handle: String) -> Activitystream
 }
 
 #[post("/actors/<id>/inbox", data = "<activity>")]
-pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
+pub fn actor_inbox(id: String, activity: String, _signature: Signature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
         _signature,
@@ -25,7 +25,7 @@ pub fn actor_inbox(id: String, activity: String, _signature: HTTPSignature) {
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(activity: String, _signature: HTTPSignature) {
+pub fn inbox(activity: String, _signature: Signature) {
     controller::prepare_incoming(
         serde_json::from_str(&activity).unwrap_or_else(|_| serde_json::json!({})),
         _signature,

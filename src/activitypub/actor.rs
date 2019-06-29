@@ -7,7 +7,7 @@ use database;
 use env;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, json};
-use web_handler;
+use web;
 
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
 #[allow(non_snake_case)]
@@ -98,7 +98,7 @@ pub fn refresh(uri: String) {
         if actor.modified.timestamp() <= expiration_time.timestamp() && !actor.local {
             println!("Refreshing actor {}", uri);
 
-            match web_handler::fetch_remote_object(&uri.to_string()) {
+            match web::fetch_remote_object(&uri.to_string()) {
                 Ok(object) => {
                     let parsed_object: serde_json::Value = serde_json::from_str(&object).unwrap();
 
