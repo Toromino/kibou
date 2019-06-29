@@ -9,6 +9,7 @@ use std::collections::HashMap;
 pub struct Signature {
     pub algorithm: Option<String>,
     pub content_length: Option<String>,
+    pub content_type: Option<String>,
     pub date: String,
     pub digest: Option<String>,
     pub host: String,
@@ -38,6 +39,10 @@ impl Signature {
                     "(request_target): post {}",
                     self.request_target.as_ref().unwrap()
                 )),
+                "content-type" => signature.push(format!(
+                    "content-type: {}",
+                    self.content_type.as_ref().unwrap()
+                )),
                 "content-length" => signature.push(format!(
                     "content-length: {}",
                     self.content_length.as_ref().unwrap()
@@ -62,6 +67,7 @@ impl Signature {
     pub fn new(key_id: &str, request_target: &str, host: &str) -> Signature {
         return Signature {
             algorithm: Some(String::from("rsa-sha256")),
+            content_type: None,
             content_length: None,
             date: chrono::Utc::now().to_rfc2822().to_string(),
             digest: None,

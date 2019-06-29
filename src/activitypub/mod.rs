@@ -77,6 +77,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Signature {
 
     fn from_request(request: &'a Request<'r>) -> request::Outcome<Signature, ()> {
         let content_length_vec: Vec<_> = request.headers().get("Content-Length").collect();
+        let content_type_vec: Vec<_> = request.headers().get("Content-Type").collect();
         let date_vec: Vec<_> = request.headers().get("Date").collect();
         let digest_vec: Vec<_> = request.headers().get("Digest").collect();
         let host_vec: Vec<_> = request.headers().get("Host").collect();
@@ -100,6 +101,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Signature {
             return Outcome::Success(Signature {
                 algorithm: None,
                 content_length: Some(content_length_vec.get(0).unwrap_or_else(|| &"").to_string()),
+                content_type: Some(content_type_vec.get(0).unwrap_or_else(|| &"").to_string()),
                 date: date_vec.get(0).unwrap_or_else(|| &"").to_string(),
                 digest: Some(digest_vec.get(0).unwrap_or_else(|| &"").to_string()),
                 headers: headers.iter().map(|header| header.to_string()).collect(),
