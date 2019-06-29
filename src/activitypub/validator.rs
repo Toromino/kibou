@@ -170,18 +170,19 @@ pub fn validate_actor(actor: serde_json::Value) -> Result<serde_json::Value, &'s
 fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
     if activity["to"].is_string() {
         activity["to"] = serde_json::json!(vec![activity["to"].as_str().unwrap().to_string()]);
+    } else if activity.get("to").is_none() {
+        let empty_array: Vec<&str> = Vec::new();
+        activity["to"] = serde_json::json!(empty_array);
     }
 
     if activity["cc"].is_string() {
         activity["cc"] = serde_json::json!(vec![activity["cc"].as_str().unwrap().to_string()]);
+    } else if activity.get("cc").is_none() {
+        let empty_array: Vec<&str> = Vec::new();
+        activity["cc"] = serde_json::json!(empty_array);
     }
 
     let mut new_activity: Activity;
-
-    if activity.get("cc").is_none() {
-        let new_cc_tag: Vec<String> = vec![];
-        activity["cc"] = serde_json::json!(new_cc_tag);
-    }
 
     new_activity = serde_json::from_value(activity.clone()).unwrap();
     new_activity.context = None;
@@ -194,10 +195,16 @@ fn normalize_activity(mut activity: serde_json::Value) -> serde_json::Value {
 fn normalize_object(mut object: serde_json::Value) -> serde_json::Value {
     if object["to"].is_string() {
         object["to"] = serde_json::json!(vec![object["to"].as_str().unwrap().to_string()]);
+    } else if object.get("to").is_none() {
+        let empty_array: Vec<&str> = Vec::new();
+        object["to"] = serde_json::json!(empty_array);
     }
 
     if object["cc"].is_string() {
         object["cc"] = serde_json::json!(vec![object["cc"].as_str().unwrap().to_string()]);
+    } else if object.get("cc").is_none() {
+        let empty_array: Vec<&str> = Vec::new();
+        object["cc"] = serde_json::json!(empty_array);
     }
 
     let mut new_object: Object;
