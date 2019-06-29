@@ -261,7 +261,7 @@ fn activity_build(
         ),
         actor: actor.to_string(),
         object: object,
-        published: Utc::now().to_rfc3339().to_string(),
+        published: Some(Utc::now().to_rfc3339().to_string()),
         to: to,
         cc: cc,
     };
