@@ -90,6 +90,10 @@ pub fn react(actor: &i64, _type: &str, object_id: &str) {
                     ),
                 }
 
+                to.dedup();
+                cc.dedup();
+                inboxes.dedup();
+
                 match _type {
                     "Announce" => {
                         let new_activity =
@@ -196,6 +200,8 @@ pub fn status_build(
         in_reply_to_id = None;
     }
 
+    direct_receipients.dedup();
+    receipients.dedup();
     inboxes.dedup();
 
     let activitypub_note = ap_controller::note(
