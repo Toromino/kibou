@@ -77,6 +77,19 @@ pub fn react(actor: &i64, _type: &str, object_id: &str) {
                     inboxes = handle_follower_inboxes(&database, &serialized_actor.followers);
                 }
 
+                match get_actor_by_uri(&database, &ap_activity.actor) {
+                    Ok(foreign_actor) => {
+                        if !foreign_actor.local {
+                            to.push(foreign_actor.actor_uri);
+                            inboxes.push(foreign_actor.inbox.unwrap());
+                        }
+                    }
+                    Err(_) => eprintln!(
+                        "Error: Actor '{}' should exist in order to create a reaction!",
+                        &ap_activity.actor
+                    ),
+                }
+
                 match _type {
                     "Announce" => {
                         let new_activity =
@@ -121,6 +134,7 @@ pub fn status_build(
     let mut receipients: Vec<String> = Vec::new();
     let mut inboxes: Vec<String> = Vec::new();
     let mut tags: Vec<serde_json::Value> = Vec::new();
+    let mut in_reply_to_id: Option<String>;
 
     let parsed_mentions = parse_mentions(html::strip_tags(&content));
     direct_receipients.extend(parsed_mentions.0);
@@ -158,11 +172,35 @@ pub fn status_build(
         _ => (),
     }
 
+    if in_reply_to.is_some() {
+        match get_activity_by_id(&database, in_reply_to.unwrap().parse::<i64>().unwrap()) {
+            Ok(activity) => {
+                in_reply_to_id = Some(activity.data["object"]["id"].as_str().unwrap().to_string());
+
+                match get_actor_by_uri(
+                    &database,
+                    activity.data["object"]["attributedTo"].as_str().unwrap(),
+                ) {
+                    Ok(actor) => {
+                        direct_receipients.push(actor.actor_uri);
+                        if !actor.local {
+                            inboxes.push(actor.inbox.unwrap());
+                        }
+                    }
+                    Err(_) => (),
+                }
+            }
+            Err(_) => in_reply_to_id = None,
+        }
+    } else {
+        in_reply_to_id = None;
+    }
+
     inboxes.dedup();
 
     let activitypub_note = ap_controller::note(
         &actor,
-        handle_in_reply_to(in_reply_to),
+        in_reply_to_id,
         content,
         direct_receipients.clone(),
         receipients.clone(),
@@ -248,19 +286,6 @@ fn handle_follower_inboxes(
         }
     }
     return inboxes;
-}
-
-fn handle_in_reply_to(local_id: Option<String>) -> Option<String> {
-    let database = database::establish_connection();
-
-    if local_id.is_some() {
-        match get_activity_by_id(&database, local_id.unwrap().parse::<i64>().unwrap()) {
-            Ok(activity) => Some(activity.data["object"]["id"].as_str().unwrap().to_string()),
-            Err(_) => None,
-        }
-    } else {
-        return None;
-    }
 }
 
 fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json::Value>, String) {
