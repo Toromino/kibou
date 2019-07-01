@@ -290,7 +290,7 @@ pub fn get_actor_by_acct(
 
 pub fn get_actor_by_id(
     db_connection: &PgConnection,
-    _id: i64,
+    _id: &i64,
 ) -> Result<Actor, diesel::result::Error> {
     match actors
         .filter(id.eq(_id))

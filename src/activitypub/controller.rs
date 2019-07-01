@@ -54,6 +54,19 @@ pub fn actor_exists(actor_id: &str) -> bool {
     }
 }
 
+/// Creates a new `Announce` activity, inserts it into the database and returns the newly created activity
+///
+/// # Parameters
+///
+/// * `actor`  -        &str | Reference to an ActivityPub actor
+/// * `object` -        &str | Reference to an ActivityStreams object
+/// * `to`     - Vec<String> | A vector of strings that provides direct receipients
+/// * `cc`     - Vec<String> | A vector of strings that provides passive receipients
+///
+pub fn announce(actor: &str, object: &str, to: Vec<String>, cc: Vec<String>) -> Activity {
+    activity_build("Announce", actor, serde_json::json!(object), to, cc)
+}
+
 /// Creates a new `Create` activity, inserts it into the database and returns the newly created activity
 ///
 /// # Parameters
