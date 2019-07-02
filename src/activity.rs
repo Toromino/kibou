@@ -210,13 +210,15 @@ pub fn deserialize_activity(activity: &Activity) -> InsertActivity {
     }
 }
 
-pub fn insert_activity(db_connection: &PgConnection, activity: Activity) {
+pub fn insert_activity(db_connection: &PgConnection, activity: Activity) -> Activity {
     let new_activity = deserialize_activity(&activity);
 
-    diesel::insert_into(activities::table)
-        .values(new_activity)
-        .execute(db_connection)
-        .expect("Error creating activity");
+    serialize_activity(
+        diesel::insert_into(activities::table)
+            .values(&new_activity)
+            .get_result(db_connection)
+            .expect("Error creating activity"),
+    )
 }
 
 pub fn delete_ap_activity_by_id(db_connection: &PgConnection, activity_id: String) {
