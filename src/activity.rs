@@ -9,7 +9,7 @@ use diesel::sql_query;
 use diesel::ExpressionMethods;
 use env;
 use serde_json;
-
+#[derive(Clone)]
 pub struct Activity {
     pub id: i64,
     pub data: serde_json::Value,

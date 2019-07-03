@@ -104,6 +104,17 @@ pub struct Mention {
     pub id: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Notification {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub created_at: String,
+    pub account: Account,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<Status>,
+}
+
 #[derive(FromForm)]
 pub struct PublicTimeline {
     pub local: Option<bool>,

@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use database::schema::activities;
 use database::schema::actors;
+use database::schema::notifications;
 
 #[derive(Queryable, PartialEq, QueryableByName, Clone)]
 #[table_name = "activities"]
@@ -23,6 +24,15 @@ pub struct QueryActivityId {
 pub struct InsertActivity<'a> {
     pub data: &'a serde_json::Value,
     pub actor_uri: &'a String,
+}
+
+#[derive(Insertable)]
+#[table_name = "notifications"]
+pub struct InsertNotification {
+    pub activity_id: i64,
+    pub actor_id: i64,
+    pub created: NaiveDateTime,
+    pub modified: NaiveDateTime,
 }
 
 #[derive(Queryable, PartialEq, QueryableByName, Clone)]

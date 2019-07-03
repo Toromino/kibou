@@ -111,9 +111,9 @@ pub fn instance() -> JsonValue {
     get_instance_info()
 }
 
-#[get("/api/v1/notifications")]
-pub fn notifications() -> JsonValue {
-    return controller::unsupported_endpoint();
+#[get("/api/v1/notifications?<limit>")]
+pub fn notifications(_token: AuthorizationHeader, limit: Option<i64>) -> JsonValue {
+    return controller::notifications(parse_authorization_header(&_token.to_string()), limit);
 }
 
 #[options("/api/v1/instance")]

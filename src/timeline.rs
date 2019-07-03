@@ -158,7 +158,7 @@ fn prepare_order_query(max_id: Option<i64>, since_id: Option<i64>, min_id: Optio
     } else if min_id.is_some() {
         format!(
             "AND id > {} ORDER BY id ASC",
-            runtime_escape(&since_id.unwrap().to_string())
+            runtime_escape(&min_id.unwrap().to_string())
         )
     } else {
         String::from("ORDER BY id DESC")

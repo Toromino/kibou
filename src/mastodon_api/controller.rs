@@ -10,9 +10,10 @@ use diesel::PgConnection;
 use env;
 use kibou_api;
 use mastodon_api::{
-    Account, Attachment, HomeTimeline, PublicTimeline, RegistrationForm, Relationship, Source,
-    Status, StatusForm,
+    Account, Attachment, HomeTimeline, Notification, PublicTimeline, RegistrationForm,
+    Relationship, Source, Status, StatusForm,
 };
+use notification::notifications_for_actor;
 use oauth;
 use oauth::application::Application as OAuthApplication;
 use oauth::token::{verify_token, Token};
@@ -202,6 +203,36 @@ pub fn home_timeline_json(parameters: HomeTimeline, token: String) -> JsonValue 
     match home_timeline(parameters, token) {
         Ok(statuses) => json!(statuses),
         Err(_) => json!({"error": "An error occured while generating timeline."}),
+    }
+}
+
+pub fn notifications(token: String, limit: Option<i64>) -> JsonValue {
+    let database = database::establish_connection();
+
+    match verify_token(&database, token) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
+            Ok(actor) => {
+                match notifications_for_actor(&database, &actor, None, None, None, limit) {
+                    Ok(notifications) => {
+                        let notification_vec: Vec<Notification> = notifications
+                            .iter()
+                            .map(|notification| {
+                                serialize_notification_from_activitystreams(
+                                    &activity::get_activity_by_id(&database, *notification)
+                                        .unwrap(),
+                                )
+                                .unwrap()
+                            })
+                            .collect();
+
+                        return json!(notification_vec);
+                    }
+                    Err(_) => json!({"error": "An error occured while generating notifications"}),
+                }
+            }
+            Err(_) => json!({"error": "User associated to token not found"}),
+        },
+        Err(_) => json!({"error": "Invalid oauth token"}),
     }
 }
 
@@ -603,6 +634,34 @@ fn serialize_attachments_from_activitystreams(activity: &activity::Activity) -> 
         None => (),
     }
     return media_attachments;
+}
+
+fn serialize_notification_from_activitystreams(
+    activity: &activity::Activity,
+) -> Result<Notification, ()> {
+    let database = database::establish_connection();
+    let serialized_activity: activitypub::activity::Activity =
+        serde_json::from_value(activity.data.to_owned()).unwrap();
+
+    match serialized_activity._type.as_str() {
+        "Follow" => Ok(Notification {
+            id: activity.id.to_string(),
+            _type: String::from("follow"),
+            created_at: serialized_activity.published,
+            account: account_cached_by_uri(Box::leak(activity.actor.to_owned().into_boxed_str()))
+                .unwrap(),
+            status: None,
+        }),
+        "Create" => Ok(Notification {
+            id: activity.id.to_string(),
+            _type: String::from("mention"),
+            created_at: serialized_activity.published,
+            account: account_cached_by_uri(Box::leak(activity.actor.to_owned().into_boxed_str()))
+                .unwrap(),
+            status: Some(status_cached_by_id(activity.id).unwrap()),
+        }),
+        _ => Err(()),
+    }
 }
 
 fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result<Status, ()> {
