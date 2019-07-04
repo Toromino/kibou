@@ -12,7 +12,7 @@ use activity::{
 use activitypub::activity::{serialize_from_internal_activity, Tag};
 use activitypub::actor::{add_follow, remove_follow};
 use activitypub::controller as ap_controller;
-use activitypub::routes::object;
+
 use actor::{get_actor_by_acct, get_actor_by_id, get_actor_by_uri, is_actor_followed_by, Actor};
 use database;
 use diesel::PgConnection;

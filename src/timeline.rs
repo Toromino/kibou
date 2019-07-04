@@ -70,7 +70,7 @@ pub fn public_activities(db_connection: &PgConnection) -> Result<Vec<i64>, diese
 pub fn public_timeline(
     db_connection: &PgConnection,
     local: bool,
-    only_media: bool,
+    _only_media: bool,
     max_id: Option<i64>,
     since_id: Option<i64>,
     min_id: Option<i64>,

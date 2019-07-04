@@ -140,7 +140,7 @@ pub fn account_follow(
     id: i64,
     unfollow: bool,
 ) -> Template {
-    let database = database::establish_connection();
+    let _database = database::establish_connection();
 
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration.clone());
@@ -380,7 +380,7 @@ pub fn index(configuration: LocalConfiguration, authentication: Authentication) 
     let mut context = HashMap::<String, String>::new();
 
     match &authentication.account {
-        Some(account) => return home_timeline(configuration, authentication),
+        Some(_account) => return home_timeline(configuration, authentication),
         None => {
             context.extend(configuration);
             context.extend(prepare_authentication_context(&authentication));

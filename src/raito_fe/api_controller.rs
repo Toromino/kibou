@@ -220,7 +220,7 @@ pub fn register(form: LenientForm<RegistrationForm>) -> Option<String> {
 
 pub fn relationships_by_token(token: &str, ids: Vec<i64>) -> Option<Vec<Relationship>> {
     if unsafe { BYPASS_API } == &true {
-        match controller::relationships_by_token(token, ids) {
+        match serde_json::from_value(controller::relationships(token, ids).into()) {
             Ok(relationships) => Some(relationships),
             Err(_) => None,
         }

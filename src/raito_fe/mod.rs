@@ -56,7 +56,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Authentication {
 impl<'a, 'r> FromRequest<'a, 'r> for LocalConfiguration {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<LocalConfiguration, ()> {
+    fn from_request(_request: &'a Request<'r>) -> request::Outcome<LocalConfiguration, ()> {
         let mut new_config = HashMap::<String, String>::new();
         new_config.insert("javascript_enabled".to_string(), "false".to_string());
         new_config.insert("mastodon_api_base_uri".to_string(), unsafe {

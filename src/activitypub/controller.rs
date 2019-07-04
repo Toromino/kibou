@@ -300,22 +300,20 @@ fn handle_object(object: serde_json::Value) {
     let serialized_object: Object = serde_json::from_value(object.clone()).unwrap();
 
     if !serialized_object.inReplyTo.is_none() {
-        let object_id = serialized_object.id;
-        let reply_id = serialized_object.inReplyTo.unwrap().clone();
-        thread::spawn(move || {
-            if !object_exists(&object_id) {
-                fetch_object_by_id(reply_id);
-            }
-        });
+        if !object_exists(&serialized_object.inReplyTo.clone().unwrap()) {
+            fetch_object_by_id(serialized_object.inReplyTo.unwrap().to_string());
+        }
     }
 
-    // Wrapping new object in an activity, as raw objects don't get stored
-    let activity = create(
-        &serialized_object.attributedTo,
-        object,
-        serialized_object.to,
-        serialized_object.cc,
-    );
+    if !object_exists(&serialized_object.id) {
+        // Wrapping new object in an activity, as raw objects don't get stored
+        let _activity = create(
+            &serialized_object.attributedTo,
+            object,
+            serialized_object.to,
+            serialized_object.cc,
+        );
+    }
 }
 
 /// Handles a newly fetched actor

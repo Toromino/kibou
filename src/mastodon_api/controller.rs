@@ -4,13 +4,15 @@ use activitypub;
 use actor;
 use actor::get_actor_by_id;
 use actor::get_actor_by_uri;
+use cached::TimedCache;
+use chrono;
 use chrono::Utc;
 use database;
 use diesel::PgConnection;
 use env;
 use kibou_api;
 use mastodon_api::{
-    Account, Attachment, HomeTimeline, Notification, PublicTimeline, RegistrationForm,
+    Account, Attachment, HomeTimeline, Instance, Notification, PublicTimeline, RegistrationForm,
     Relationship, Source, Status, StatusForm,
 };
 use notification::notifications_for_actor;
@@ -23,7 +25,7 @@ use rocket_contrib::json::JsonValue;
 use timeline;
 use timeline::{home_timeline as get_home_timeline, public_timeline as get_public_timeline};
 
-pub fn account_json_by_id(id: i64) -> JsonValue {
+pub fn account(id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match actor::get_actor_by_id(&database, &id) {
@@ -94,7 +96,7 @@ pub fn account_create(form: &RegistrationForm) -> Option<Token> {
         actor::create_actor(&database, &mut new_actor);
 
         match actor::get_local_actor_by_preferred_username(&database, &form.username) {
-            Ok(actor) => Some(oauth::token::create(&form.username)),
+            Ok(_actor) => Some(oauth::token::create(&form.username)),
             Err(_) => None,
         }
     } else {
@@ -115,14 +117,12 @@ pub fn account_statuses_json_by_id(
         Ok(actor) => {
             match timeline::user_timeline(&database, actor, max_id, since_id, min_id, limit) {
                 Ok(statuses) => {
-                    let mut serialized_statuses: Vec<Status> = vec![];
-
-                    for status in statuses {
-                        if let Ok(valid_status) = status_cached_by_id(status) {
-                            serialized_statuses.push(valid_status)
-                        }
-                    }
-                    json!(serialized_statuses)
+                    let status_vec: Vec<Status> = statuses
+                        .iter()
+                        .filter(|&id| status_cached_by_id(*id).is_ok())
+                        .map(|id| status_cached_by_id(*id).unwrap())
+                        .collect();
+                    return json!(status_vec);
                 }
                 Err(_) => json!({"error": "Error generating user timeline."}),
             }
@@ -148,8 +148,40 @@ pub fn context_json_for_id(id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match activity::get_activity_by_id(&database, id) {
-        Ok(activity) => {
-            json!({"ancestors": status_parents_for_id(&database, id, true), "descendants": status_children_for_id(&database, id, true)})
+        Ok(_activity) => {
+            let mut ancestors = status_parents_for_id(&database, id, true);
+            let mut descendants = status_children_for_id(&database, id, true);
+            ancestors.sort_by(|status_a, status_b| {
+                chrono::DateTime::parse_from_rfc3339(&status_a.created_at)
+                    .unwrap_or_else(|_| {
+                        chrono::DateTime::parse_from_rfc3339(&Utc::now().to_rfc3339()).unwrap()
+                    })
+                    .timestamp()
+                    .cmp(
+                        &chrono::DateTime::parse_from_rfc3339(&status_b.created_at)
+                            .unwrap_or_else(|_| {
+                                chrono::DateTime::parse_from_rfc3339(&Utc::now().to_rfc3339())
+                                    .unwrap()
+                            })
+                            .timestamp(),
+                    )
+            });
+            descendants.sort_by(|status_a, status_b| {
+                chrono::DateTime::parse_from_rfc3339(&status_a.created_at)
+                    .unwrap_or_else(|_| {
+                        chrono::DateTime::parse_from_rfc3339(&Utc::now().to_rfc3339()).unwrap()
+                    })
+                    .timestamp()
+                    .cmp(
+                        &chrono::DateTime::parse_from_rfc3339(&status_b.created_at)
+                            .unwrap_or_else(|_| {
+                                chrono::DateTime::parse_from_rfc3339(&Utc::now().to_rfc3339())
+                                    .unwrap()
+                            })
+                            .timestamp(),
+                    )
+            });
+            json!({"ancestors": ancestors, "descendants": descendants})
         }
         Err(_) => json!({"error": "Status not found"}),
     }
@@ -199,11 +231,60 @@ pub fn follow(token: String, id: i64) -> JsonValue {
     }
 }
 
-pub fn home_timeline_json(parameters: HomeTimeline, token: String) -> JsonValue {
-    match home_timeline(parameters, token) {
-        Ok(statuses) => json!(statuses),
-        Err(_) => json!({"error": "An error occured while generating timeline."}),
+pub fn home_timeline(parameters: HomeTimeline, token: String) -> JsonValue {
+    let database = database::establish_connection();
+
+    match verify_token(&database, token) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
+            Ok(actor) => {
+                match get_home_timeline(
+                    &database,
+                    actor,
+                    parameters.max_id,
+                    parameters.since_id,
+                    parameters.min_id,
+                    parameters.limit,
+                ) {
+                    Ok(statuses) => {
+                        let status_vec: Vec<Status> = statuses
+                            .iter()
+                            .filter(|&id| status_cached_by_id(*id).is_ok())
+                            .map(|id| status_cached_by_id(*id).unwrap())
+                            .collect();
+                        return json!(status_vec);
+                    }
+                    Err(_e) => json!({"error": "An error occured while generating home timeline"}),
+                }
+            }
+            Err(_e) => json!({"error": "User associated to token not found"}),
+        },
+        Err(_e) => json!({"error": "Invalid oauth token"}),
     }
+}
+
+pub fn instance_info() -> JsonValue {
+    let database = database::establish_connection();
+    json!(Instance {
+        uri: format!(
+            "{base_scheme}://{base_domain}",
+            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+            base_domain = env::get_value(String::from("endpoint.base_domain"))
+        ),
+        title: env::get_value(String::from("node.name")),
+        description: env::get_value(String::from("node.description")),
+        email: env::get_value(String::from("node.contact_email")),
+        version: String::from("2.3.0 (compatible; Kibou 0.1)"),
+        thumbnail: None,
+        // Kibou does not support Streaming_API yet, but this value is not nullable according to
+        // Mastodon-API's specifications, so that is why it is showing an empty value instead
+        urls: serde_json::json!({"streaming_api": ""}),
+        // `domain_count` always stays 0 as Kibou does not keep data about remote nodes
+        stats: serde_json::json!({"user_count": actor::count_local_actors(&database).unwrap_or_else(|_| 0),
+        "status_count": activity::count_local_ap_notes(&database).unwrap_or_else(|_| 0),
+        "domain_count": 0}),
+        languages: vec![],
+        contact_account: None
+    })
 }
 
 pub fn notifications(token: String, limit: Option<i64>) -> JsonValue {
@@ -236,43 +317,31 @@ pub fn notifications(token: String, limit: Option<i64>) -> JsonValue {
     }
 }
 
-pub fn public_timeline_json(parameters: PublicTimeline) -> JsonValue {
-    match public_timeline(parameters) {
-        Ok(statuses) => json!(statuses),
-        Err(_) => json!({"error": "An error occured while generating timeline."}),
-    }
-}
-
-pub fn relationships_json_by_token(token: &str, ids: Vec<i64>) -> JsonValue {
-    match relationships_by_token(token, ids) {
-        Ok(relationships) => json!(relationships),
-        Err(e) => json!({ "error": e }),
-    }
-}
-
-pub fn reblog(token: String, id: i64) -> JsonValue {
+pub fn public_timeline(parameters: PublicTimeline) -> JsonValue {
     let database = database::establish_connection();
 
-    match activity::get_activity_by_id(&database, id) {
-        Ok(activity) => match account_by_oauth_token(token) {
-            Ok(account) => {
-                kibou_api::react(
-                    &account.id.parse::<i64>().unwrap(),
-                    "Announce",
-                    activity.data["object"]["id"].as_str().unwrap(),
-                );
-                json!(status_cached_by_id(id))
-            }
-            Err(_) => json!({"error": "Token invalid!"}),
-        },
-        Err(_) => json!({"error": "Status not found"}),
+    match get_public_timeline(
+        &database,
+        parameters.local.unwrap_or_else(|| false),
+        parameters.only_media.unwrap_or_else(|| false),
+        parameters.max_id,
+        parameters.since_id,
+        parameters.min_id,
+        parameters.limit,
+    ) {
+        Ok(statuses) => {
+            let status_vec: Vec<Status> = statuses
+                .iter()
+                .filter(|&id| status_cached_by_id(*id).is_ok())
+                .map(|id| status_cached_by_id(*id).unwrap())
+                .collect();
+            return json!(status_vec);
+        }
+        Err(_e) => json!({"error": "An error occured while generating timeline."}),
     }
 }
 
-pub fn relationships_by_token(
-    token: &str,
-    ids: Vec<i64>,
-) -> Result<Vec<Relationship>, &'static str> {
+pub fn relationships(token: &str, ids: Vec<i64>) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token.to_string()) {
@@ -342,11 +411,30 @@ pub fn relationships_by_token(
                         None => (),
                     }
                 }
-                return Ok(relationships);
+                return json!(relationships);
             }
-            Err(_) => Err("User not found."),
+            Err(_) => json!({"error": "User not found."}),
         },
-        Err(_) => Err("Acces token invalid!"),
+        Err(_) => json!({"error": "Access token invalid!"}),
+    }
+}
+
+pub fn reblog(token: String, id: i64) -> JsonValue {
+    let database = database::establish_connection();
+
+    match activity::get_activity_by_id(&database, id) {
+        Ok(activity) => match account_by_oauth_token(token) {
+            Ok(account) => {
+                kibou_api::react(
+                    &account.id.parse::<i64>().unwrap(),
+                    "Announce",
+                    activity.data["object"]["id"].as_str().unwrap(),
+                );
+                json!(status_cached_by_id(id))
+            }
+            Err(_) => json!({"error": "Token invalid!"}),
+        },
+        Err(_) => json!({"error": "Status not found"}),
     }
 }
 
@@ -418,8 +506,6 @@ pub fn status_cached_by_id(id: i64) -> Result<Status, String> {
 }
 
 pub fn status_json_by_id(id: i64) -> JsonValue {
-    let database = database::establish_connection();
-
     match status_cached_by_id(id) {
         Ok(status) => json!(status),
         Err(_) => json!({"error": "Status not found."}),
@@ -479,7 +565,7 @@ pub fn unsupported_endpoint() -> JsonValue {
 }
 
 cached! {
-    MASTODON_API_ACCOUNT_CACHE;
+    MASTODON_API_ACCOUNT_CACHE: TimedCache<(&'static str), Result<serde_json::Value, String>> = TimedCache::with_lifespan(300);
 fn account_by_uri(uri: &'static str) -> Result<serde_json::Value, String> = {
     let database = database::establish_connection();
     match actor::get_actor_by_uri(&database, uri) {
@@ -545,74 +631,10 @@ fn count_statuses(db_connection: &PgConnection, account_uri: &str) -> i64 {
     }
 }
 
-fn home_timeline(
-    parameters: HomeTimeline,
-    token: String,
-) -> Result<Vec<Status>, diesel::result::Error> {
-    let database = database::establish_connection();
-
-    match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
-            Ok(actor) => {
-                match get_home_timeline(
-                    &database,
-                    actor,
-                    parameters.max_id,
-                    parameters.since_id,
-                    parameters.min_id,
-                    parameters.limit,
-                ) {
-                    Ok(statuses) => {
-                        let mut serialized_statuses: Vec<Status> = vec![];
-
-                        for status in statuses {
-                            if let Ok(valid_status) = status_cached_by_id(status) {
-                                serialized_statuses.push(valid_status)
-                            }
-                        }
-
-                        Ok(serialized_statuses)
-                    }
-                    Err(e) => Err(e),
-                }
-            }
-            Err(e) => Err(e),
-        },
-        Err(e) => Err(e),
-    }
-}
-
-fn public_timeline(parameters: PublicTimeline) -> Result<Vec<Status>, diesel::result::Error> {
-    let database = database::establish_connection();
-
-    match get_public_timeline(
-        &database,
-        parameters.local.unwrap_or_else(|| false),
-        parameters.only_media.unwrap_or_else(|| false),
-        parameters.max_id,
-        parameters.since_id,
-        parameters.min_id,
-        parameters.limit,
-    ) {
-        Ok(statuses) => {
-            let mut serialized_statuses: Vec<Status> = vec![];
-
-            for status in statuses {
-                if let Ok(valid_status) = status_cached_by_id(status) {
-                    serialized_statuses.push(valid_status)
-                }
-            }
-
-            Ok(serialized_statuses)
-        }
-        Err(e) => Err(e),
-    }
-}
-
 fn serialize_attachments_from_activitystreams(activity: &activity::Activity) -> Vec<Attachment> {
     let mut media_attachments: Vec<Attachment> = Vec::new();
     match activity.data["object"].get("attachment") {
-        Some(attachmenets) => {
+        Some(_attachments) => {
             let serialized_attachments: Vec<activitypub::Attachment> =
                 serde_json::from_value(activity.data["object"]["attachment"].to_owned()).unwrap();
 
@@ -659,6 +681,36 @@ fn serialize_notification_from_activitystreams(
             account: account_cached_by_uri(Box::leak(activity.actor.to_owned().into_boxed_str()))
                 .unwrap(),
             status: Some(status_cached_by_id(activity.id).unwrap()),
+        }),
+        "Announce" => Ok(Notification {
+            id: activity.id.to_string(),
+            _type: String::from("reblog"),
+            created_at: serialized_activity.published,
+            account: account_cached_by_uri(Box::leak(activity.actor.to_owned().into_boxed_str()))
+                .unwrap(),
+            status: Some(
+                status_cached_by_id(
+                    get_ap_object_by_id(&database, serialized_activity.object.as_str().unwrap())
+                        .unwrap()
+                        .id,
+                )
+                .unwrap(),
+            ),
+        }),
+        "Like" => Ok(Notification {
+            id: activity.id.to_string(),
+            _type: String::from("favourite"),
+            created_at: serialized_activity.published,
+            account: account_cached_by_uri(Box::leak(activity.actor.to_owned().into_boxed_str()))
+                .unwrap(),
+            status: Some(
+                status_cached_by_id(
+                    get_ap_object_by_id(&database, serialized_activity.object.as_str().unwrap())
+                        .unwrap()
+                        .id,
+                )
+                .unwrap(),
+            ),
         }),
         _ => Err(()),
     }
@@ -781,7 +833,7 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
                         pinned: None,
                     })
                 }
-                Err(e) => Err(()),
+                Err(_e) => Err(()),
             }
         }
         _ => Err(()),
@@ -789,7 +841,7 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
 }
 
 cached! {
-    MASTODON_API_STATUS_CACHE;
+    MASTODON_API_STATUS_CACHE: TimedCache<(i64), Result<serde_json::Value, String>> = TimedCache::with_lifespan(300);
 fn status_by_id(id: i64) -> Result<serde_json::Value, String> = {
     let database = database::establish_connection();
     match activity::get_activity_by_id(&database, id) {

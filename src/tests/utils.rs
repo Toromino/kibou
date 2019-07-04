@@ -28,7 +28,7 @@ pub fn create_local_test_actor(username: &str) -> actor::Actor {
     test_actor
 }
 
-pub fn delete_test_actor(mut actor: actor::Actor) {
+pub fn delete_test_actor(actor: actor::Actor) {
     let database = database::establish_connection();
     actor::delete(&database, actor);
 }

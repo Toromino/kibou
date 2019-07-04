@@ -17,7 +17,7 @@ pub fn enqueue(mut actor: Actor, activity: serde_json::Value, inboxes: Vec<Strin
 
         println!("Federating activity to inbox: {}", inbox);
 
-        let request = client
+        let _request = client
             .post(&inbox)
             .header(DATE, chrono::Utc::now().to_rfc2822().to_string())
             .header(HOST, host)

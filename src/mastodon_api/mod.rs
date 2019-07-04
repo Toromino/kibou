@@ -1,16 +1,9 @@
 pub mod controller;
 pub mod routes;
-
-use activity;
-use actor;
-use database;
-use env;
 use rocket::request;
 use rocket::request::FromRequest;
 use rocket::request::Request;
 use rocket::Outcome;
-use rocket_contrib::json;
-use rocket_contrib::json::JsonValue;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
@@ -224,31 +217,6 @@ impl<'a, 'r> FromRequest<'a, 'r> for AuthorizationHeader {
             return Outcome::Success(AuthorizationHeader(headers[0].to_string()));
         }
     }
-}
-
-pub fn get_instance_info() -> JsonValue {
-    let database = database::establish_connection();
-    json!(Instance {
-        uri: format!(
-            "{base_scheme}://{base_domain}",
-            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
-            base_domain = env::get_value(String::from("endpoint.base_domain"))
-        ),
-        title: env::get_value(String::from("node.name")),
-        description: env::get_value(String::from("node.description")),
-        email: env::get_value(String::from("node.contact_email")),
-        version: String::from("2.3.0 (compatible; Kibou 0.1)"),
-        thumbnail: None,
-        // Kibou does not support Streaming_API yet, but this value is not nullable according to
-        // Mastodon-API's specifications, so that is why it is showing an empty value instead
-        urls: serde_json::json!({"streaming_api": ""}),
-        // `domain_count` always stays 0 as Kibou does not keep data about remote nodes
-        stats: serde_json::json!({"user_count": actor::count_local_actors(&database).unwrap_or_else(|_| 0),
-        "status_count": activity::count_local_ap_notes(&database).unwrap_or_else(|_| 0),
-        "domain_count": 0}),
-        languages: vec![],
-        contact_account: None
-    })
 }
 
 pub fn parse_authorization_header(header: &str) -> String {

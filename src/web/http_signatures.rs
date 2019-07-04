@@ -3,7 +3,6 @@ use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
 use openssl::sign::Verifier;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Signature {
