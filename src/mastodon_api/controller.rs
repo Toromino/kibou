@@ -703,7 +703,9 @@ fn serialize_status_from_activitystreams(activity: activity::Activity) -> Result
                         in_reply_to_account_id: None,
                         reblog: Some(serde_json::to_value(serialized_reblog).unwrap()),
                         content: String::from("reblog"),
-                        created_at: serialized_activity.published,
+                        created_at: serialized_activity
+                            .published
+                            .unwrap_or_else(|| chrono::Utc::now().to_string()),
                         emojis: vec![],
                         replies_count: 0,
                         reblogs_count: 0,

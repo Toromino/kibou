@@ -18,7 +18,7 @@ pub struct Activity {
     pub id: String,
     pub actor: String,
     pub object: serde_json::Value,
-    pub published: String,
+    pub published: Option<String>,
     pub to: Vec<String>,
     pub cc: Vec<String>,
 }
