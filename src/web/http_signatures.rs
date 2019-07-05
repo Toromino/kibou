@@ -9,6 +9,7 @@ use std::collections::HashMap;
 pub struct Signature {
     pub algorithm: Option<String>,
     pub content_length: Option<String>,
+    pub content_type: Option<String>,
     pub date: String,
     pub digest: Option<String>,
     pub host: String,
@@ -32,7 +33,7 @@ impl Signature {
     pub fn verify(self, actor: &mut Actor) -> bool {
         let mut signature: Vec<String> = Vec::new();
 
-        for header in self.headers {
+        for header in &self.headers {
             match header.as_str() {
                 "(request-target)" => signature.push(format!(
                     "(request-target): post {}",
@@ -41,6 +42,10 @@ impl Signature {
                 "content-length" => signature.push(format!(
                     "content-length: {}",
                     self.content_length.as_ref().unwrap()
+                )),
+                "content-type" => signature.push(format!(
+                    "content-type: {}",
+                    self.content_type.as_ref().unwrap()
                 )),
                 "date" => signature.push(format!("date: {}", &self.date)),
                 "digest" => signature.push(format!("digest: {}", self.digest.as_ref().unwrap())),
@@ -56,13 +61,28 @@ impl Signature {
         let mut verifier = Verifier::new(MessageDigest::sha256(), &public_key).unwrap();
         verifier.update(&signature.join("\n").into_bytes()).unwrap();
 
-        return verifier.verify(&self.signature_in_bytes.unwrap()).unwrap();
+        if !verifier.verify(&self.signature_in_bytes.unwrap()).unwrap() {
+            eprintln!(
+                "Error: Could not verifiy http signature by '{}'",
+                &actor.actor_uri
+            );
+            eprintln!(
+                "Supplied HTTP signature headers: {}",
+                &self.headers.join(" ")
+            );
+            eprintln!("Reconstructed HTTP signature: \n {}", &signature.join("\n"));
+
+            return false;
+        } else {
+            return true;
+        }
     }
 
     pub fn new(key_id: &str, request_target: &str, host: &str) -> Signature {
         return Signature {
             algorithm: Some(String::from("rsa-sha256")),
             content_length: None,
+            content_type: None,
             date: chrono::Utc::now().to_rfc2822().to_string(),
             digest: None,
             host: host.into(),
