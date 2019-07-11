@@ -15,9 +15,9 @@ use openssl::bn::BigNum;
 use openssl::bn::MsbOption;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Token {
     pub access_token: String,
     pub refresh_token: String,

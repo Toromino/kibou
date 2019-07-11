@@ -1,0 +1,5 @@
+<li>
+<img class="account-avatar-small" src="{{account_avatar}}">
+<span>{{account_username}} {{type}}</span>
+<p class="notification-status-content">{{status_content | safe}}</p>
+</li>

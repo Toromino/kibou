@@ -1,8 +1,9 @@
 use actor;
-use database;
+use database::PooledConnection;
+use lru::LruCache;
 use mastodon_api::{
-    controller, routes, Account, AuthorizationHeader, RegistrationForm, Relationship, Status,
-    StatusForm,
+    controller, routes, Account, AuthorizationHeader, HomeTimeline, Notification, PublicTimeline,
+    RegistrationForm, Relationship, Status, StatusForm,
 };
 use oauth;
 use raito_fe::{LoginForm, BYPASS_API, MASTODON_API_BASE_URI};
@@ -23,6 +24,22 @@ pub fn follow(token: &str, id: i64) -> Result<Relationship, ()> {
     }
 }
 
+pub fn notifications(
+    pooled_connection: &PooledConnection,
+    token: &str,
+) -> Result<Vec<Notification>, ()> {
+    if unsafe { BYPASS_API } == &true {
+        match serde_json::from_str(
+            &controller::notifications(pooled_connection, token.to_string(), None).to_string(),
+        ) {
+            Ok(timeline) => Ok(timeline),
+            Err(_) => Err(()),
+        }
+    } else {
+        Err(())
+    }
+}
+
 pub fn unfollow(token: &str, id: i64) -> Result<Relationship, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
@@ -37,9 +54,11 @@ pub fn unfollow(token: &str, id: i64) -> Result<Relationship, ()> {
     }
 }
 
-pub fn get_account(id: &str) -> Result<Account, ()> {
+pub fn get_account(pooled_connection: &PooledConnection, id: &str) -> Result<Account, ()> {
     if unsafe { BYPASS_API } == &true {
-        match serde_json::from_str(&routes::account(id.parse::<i64>().unwrap()).to_string()) {
+        match serde_json::from_str(
+            &controller::account(pooled_connection, id.parse::<i64>().unwrap()).to_string(),
+        ) {
             Ok(account) => Ok(account),
             Err(_) => Err(()),
         }
@@ -58,9 +77,11 @@ pub fn get_account(id: &str) -> Result<Account, ()> {
     }
 }
 
-pub fn get_status(id: String) -> Result<Status, ()> {
+pub fn get_status(pooled_connection: &PooledConnection, id: String) -> Result<Status, ()> {
     if unsafe { BYPASS_API } == &true {
-        match serde_json::from_str(&routes::status(id.parse::<i64>().unwrap()).to_string()) {
+        match serde_json::from_str(
+            &controller::status_by_id(pooled_connection, id.parse::<i64>().unwrap()).to_string(),
+        ) {
             Ok(status) => Ok(status),
             Err(_) => Err(()),
         }
@@ -79,10 +100,15 @@ pub fn get_status(id: String) -> Result<Status, ()> {
     }
 }
 
-pub fn get_status_context(id: String) -> Result<serde_json::Value, ()> {
+pub fn get_status_context(
+    pooled_connection: &PooledConnection,
+    id: String,
+) -> Result<serde_json::Value, ()> {
     if unsafe { BYPASS_API } == &true {
-        match serde_json::from_str(&routes::status_context(id.parse::<i64>().unwrap()).to_string())
-        {
+        match serde_json::from_str(
+            &controller::context_json_for_id(pooled_connection, id.parse::<i64>().unwrap())
+                .to_string(),
+        ) {
             Ok(context) => Ok(context),
             Err(_) => Err(()),
         }
@@ -101,15 +127,18 @@ pub fn get_status_context(id: String) -> Result<serde_json::Value, ()> {
     }
 }
 
-pub fn home_timeline(token: &str) -> Result<Vec<Status>, ()> {
+pub fn home_timeline(pooled_connection: &PooledConnection, token: &str) -> Result<Vec<Status>, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::home_timeline(
-                None,
-                None,
-                None,
-                Some(40),
-                AuthorizationHeader(token.to_string()),
+            &controller::home_timeline(
+                &pooled_connection,
+                HomeTimeline {
+                    max_id: None,
+                    since_id: None,
+                    min_id: None,
+                    limit: Some(40),
+                },
+                token.to_string(),
             )
             .to_string(),
         ) {
@@ -121,10 +150,24 @@ pub fn home_timeline(token: &str) -> Result<Vec<Status>, ()> {
     }
 }
 
-pub fn get_public_timeline(local: bool) -> Result<Vec<Status>, ()> {
+pub fn get_public_timeline(
+    pooled_connection: &PooledConnection,
+    local: bool,
+) -> Result<Vec<Status>, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::public_timeline(Some(local), None, None, None, None, Some(40)).to_string(),
+            &controller::public_timeline(
+                &pooled_connection,
+                PublicTimeline {
+                    local: Some(local),
+                    only_media: None,
+                    max_id: None,
+                    since_id: None,
+                    min_id: None,
+                    limit: Some(40),
+                },
+            )
+            .to_string(),
         ) {
             Ok(timeline) => Ok(timeline),
             Err(_) => Err(()),
@@ -144,19 +187,19 @@ pub fn get_public_timeline(local: bool) -> Result<Vec<Status>, ()> {
     }
 }
 
-pub fn get_user_timeline(id: String) -> Result<Vec<Status>, ()> {
+pub fn get_user_timeline(
+    pooled_connection: &PooledConnection,
+    id: String,
+) -> Result<Vec<Status>, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::account_statuses(
+            &controller::account_statuses_by_id(
+                pooled_connection,
                 id.parse::<i64>().unwrap(),
                 None,
                 None,
                 None,
-                None,
-                None,
-                None,
                 Some(40),
-                None,
             )
             .to_string(),
         ) {
@@ -184,12 +227,10 @@ pub fn get_user_timeline(id: String) -> Result<Vec<Status>, ()> {
 // is run in standalone.
 //
 // TODO: Rework
-pub fn login(form: LenientForm<LoginForm>) -> Option<String> {
-    let db_connection = database::establish_connection();
-
+pub fn login(pooled_connection: &PooledConnection, form: LenientForm<LoginForm>) -> Option<String> {
     if unsafe { BYPASS_API } == &true {
         let form = form.into_inner();
-        match actor::authorize(&db_connection, &form.username, form.password) {
+        match actor::authorize(pooled_connection, &form.username, form.password) {
             Ok(true) => Some(oauth::token::create(&form.username).access_token),
             Ok(false) => None,
             Err(_) => None,
@@ -199,9 +240,13 @@ pub fn login(form: LenientForm<LoginForm>) -> Option<String> {
     }
 }
 
-pub fn post_status(form: LenientForm<StatusForm>, token: &str) {
+pub fn post_status(
+    pooled_connection: &PooledConnection,
+    form: LenientForm<StatusForm>,
+    token: &str,
+) {
     if unsafe { BYPASS_API } == &true {
-        routes::status_post(form, AuthorizationHeader(format!("Bearer: {}", token)));
+        controller::status_post(pooled_connection, form.into_inner(), token.to_string());
     }
 }
 
@@ -209,9 +254,11 @@ pub fn post_status(form: LenientForm<StatusForm>, token: &str) {
 // (same as in line 129)
 pub fn register(form: LenientForm<RegistrationForm>) -> Option<String> {
     if unsafe { BYPASS_API } == &true {
-        match controller::account_create(&form.into_inner()) {
-            Some(token) => Some(token.access_token),
-            None => None,
+        let token: Result<oauth::token::Token, serde_json::Error> =
+            serde_json::from_value(controller::account_create(&form.into_inner()).into());
+        match token {
+            Ok(token) => Some(token.access_token),
+            Err(_) => None,
         }
     } else {
         None

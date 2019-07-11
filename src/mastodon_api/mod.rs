@@ -1,11 +1,22 @@
 pub mod controller;
 pub mod routes;
+use activity::{
+    count_ap_notes_for_actor, count_ap_object_reactions_by_id, count_ap_object_replies_by_id,
+    get_ap_object_by_id, Activity,
+};
+use activitypub;
+use actor::{count_followees, get_actor_by_uri, Actor};
+use database;
+use database::PooledConnection;
+use env;
+use lru::LruCache;
 use rocket::request;
 use rocket::request::FromRequest;
 use rocket::request::Request;
 use rocket::Outcome;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::sync::{Arc, Mutex};
 
 #[derive(Serialize, Deserialize)]
 pub struct Account {
@@ -200,6 +211,342 @@ pub struct Tag {
     pub history: Option<serde_json::Value>,
 }
 
+impl Account {
+    pub fn from_actor(
+        pooled_connection: &PooledConnection,
+        mut actor: Actor,
+        include_source: bool,
+    ) -> Account {
+        let followees = count_followees(&pooled_connection, actor.id).unwrap_or_else(|_| 0) as i64;
+        let followers: Vec<serde_json::Value> =
+            serde_json::from_value(actor.followers["activitypub"].to_owned())
+                .unwrap_or_else(|_| Vec::new());
+
+        let statuses = count_ap_notes_for_actor(&pooled_connection, &actor.actor_uri)
+            .unwrap_or_else(|_| 0) as i64;
+
+        let mut new_account = Account {
+            id: actor.id.to_string(),
+            username: actor.preferred_username.clone(),
+            acct: actor.get_acct(),
+            display_name: actor.username.unwrap_or_else(|| String::from("")),
+            locked: false,
+            created_at: actor.created.to_string(),
+            followers_count: followers.len() as i64,
+            following_count: followees,
+            statuses_count: statuses,
+            note: actor.summary.unwrap_or_else(|| String::from("")),
+            url: actor.actor_uri,
+            avatar: actor.icon.clone().unwrap_or_else(|| {
+                format!(
+                    "{}://{}/static/assets/default_avatar.png",
+                    env::get_value(String::from("endpoint.base_scheme")),
+                    env::get_value(String::from("endpoint.base_domain"))
+                )
+            }),
+            avatar_static: actor.icon.unwrap_or_else(|| {
+                format!(
+                    "{}://{}/static/assets/default_avatar.png",
+                    env::get_value(String::from("endpoint.base_scheme")),
+                    env::get_value(String::from("endpoint.base_domain"))
+                )
+            }),
+            header: format!(
+                "{}://{}/static/assets/default_banner.png",
+                env::get_value(String::from("endpoint.base_scheme")),
+                env::get_value(String::from("endpoint.base_domain"))
+            ),
+            header_static: format!(
+                "{}://{}/static/assets/default_banner.png",
+                env::get_value(String::from("endpoint.base_scheme")),
+                env::get_value(String::from("endpoint.base_domain"))
+            ),
+            emojis: vec![],
+            source: None,
+        };
+
+        if include_source {
+            new_account.source = Some(Source {
+                privacy: None,
+                sensitive: None,
+                language: None,
+                note: new_account.note.clone(),
+                fields: None,
+            });
+        }
+
+        return new_account;
+    }
+}
+
+impl Notification {
+    pub fn try_from(activity: Activity) -> Result<Self, ()> {
+        let activitypub_activity: Result<activitypub::activity::Activity, serde_json::Error> =
+            serde_json::from_value(activity.data);
+        let pooled_connection = &PooledConnection(database::POOL.get().unwrap());
+
+        if activitypub_activity.is_ok() {
+            return Notification::from_activitystreams(
+                pooled_connection,
+                activity.id,
+                activitypub_activity.unwrap(),
+            );
+        } else {
+            return Err(());
+        }
+    }
+
+    fn from_activitystreams(
+        pooled_connection: &PooledConnection,
+        activity_id: i64,
+        activity: activitypub::activity::Activity,
+    ) -> Result<Self, ()> {
+        let account = serde_json::from_value(
+            controller::cached_account(
+                pooled_connection,
+                Box::leak(activity.actor.to_owned().into_boxed_str()),
+            )
+            .into(),
+        )
+        .unwrap();
+        let notification_type = match activity._type.as_str() {
+            "Follow" => String::from("follow"),
+            "Create" => String::from("mention"),
+            "Announce" => String::from("reblog"),
+            "Like" => String::from("favourite"),
+            _ => String::from(""),
+        };
+        let mut status: Option<Status> = None;
+
+        if !notification_type.is_empty() {
+            if &notification_type == "reblog" || &notification_type == "favourite" {
+                status = serde_json::from_value(
+                    controller::status_by_id(
+                        pooled_connection,
+                        get_ap_object_by_id(pooled_connection, activity.object.as_str().unwrap())
+                            .unwrap()
+                            .id,
+                    )
+                    .into(),
+                )
+                .unwrap_or_else(|_| None);
+            } else if &notification_type == "mention" {
+                status = serde_json::from_value(
+                    controller::status_by_id(pooled_connection, activity_id).into(),
+                )
+                .unwrap();
+            }
+
+            return Ok(Notification {
+                id: activity_id.to_string(),
+                _type: notification_type,
+                created_at: activity.published,
+                account: account,
+                status: status,
+            });
+        } else {
+            return Err(());
+        }
+    }
+}
+
+impl Status {
+    pub fn try_from(activity: Activity) -> Result<Self, ()> {
+        let activitypub_activity: Result<activitypub::activity::Activity, serde_json::Error> =
+            serde_json::from_value(activity.data);
+        let pooled_connection = &PooledConnection(database::POOL.get().unwrap());
+
+        if activitypub_activity.is_ok() {
+            return Status::from_activitystreams(
+                pooled_connection,
+                activity.id,
+                activitypub_activity.unwrap(),
+            );
+        } else {
+            return Err(());
+        }
+    }
+    fn from_activitystreams(
+        pooled_connection: &PooledConnection,
+        activity_id: i64,
+        activity: activitypub::activity::Activity,
+    ) -> Result<Self, ()> {
+        let account: Account = serde_json::from_value(
+            controller::cached_account(pooled_connection, &activity.actor).into(),
+        )
+        .unwrap();
+
+        let mut mentions: Vec<Mention> = Vec::new();
+        for actor in &activity.to {
+            let mention_account: Result<Account, serde_json::Error> = serde_json::from_value(
+                controller::cached_account(pooled_connection, &actor).into(),
+            );
+            // Just unwrapping every account would mean that an entire status fails serializing,
+            // because of one invalid account.
+            match mention_account {
+                Ok(mention_account) => mentions.push(Mention {
+                    url: mention_account.url,
+                    username: mention_account.username,
+                    acct: mention_account.acct,
+                    id: mention_account.id,
+                }),
+                Err(_) => (),
+            };
+        }
+
+        // The 'Public' and 'Unlisted' scope can be easily determined by the existence of
+        // `https://www.w3.org/ns/activitystreams#Public` in either the 'to' or 'cc' field.
+        //
+        // Note that different formats like `as:Public` have already been normalized to
+        // `https://www.w3.org/ns/activitystreams#Public` in activitypub::validator.
+        let visibility = if activity
+            .to
+            .contains(&"https://www.w3.org/ns/activitystreams#Public".to_string())
+        {
+            String::from("public")
+        } else if activity
+            .cc
+            .contains(&"https://www.w3.org/ns/activitystreams#Public".to_string())
+        {
+            String::from("unlisted")
+        // XX - This might cause issues, as the 'Followers' endpoint of remote actors might differ
+        // from Kibou's schema. But as of now Kibou does not keep track of that endpoint.
+        } else if activity.to.contains(&format!("{}/followers", account.url)) {
+            String::from("private")
+        } else {
+            String::from("direct")
+        };
+
+        match activity._type.as_str() {
+            "Create" => {
+                let inner_object: activitypub::activity::Object =
+                    serde_json::from_value(activity.object.clone()).unwrap();
+                let mut in_reply_to: Option<String> = None;
+                let mut in_reply_to_account: Option<String> = None;
+                if inner_object.inReplyTo.is_some() {
+                    in_reply_to = match get_ap_object_by_id(
+                        pooled_connection,
+                        &inner_object.inReplyTo.unwrap(),
+                    ) {
+                        Ok(parent_activity) => {
+                            in_reply_to_account = match get_actor_by_uri(
+                                pooled_connection,
+                                &parent_activity.data["actor"].as_str().unwrap(),
+                            ) {
+                                Ok(parent_actor) => Some(parent_actor.id.to_string()),
+                                Err(_) => None,
+                            };
+                            Some(parent_activity.id.to_string())
+                        }
+                        Err(_) => None,
+                    };
+                }
+
+                let mut media_attachments: Vec<Attachment> = Vec::new();
+                match activity.object.get("attachment") {
+                    Some(attachments) => {
+                        let attachments: Vec<activitypub::Attachment> =
+                            serde_json::from_value(activity.object["attachment"].to_owned())
+                                .unwrap();
+
+                        for attachment in attachments {
+                            media_attachments.push(Attachment {
+                                id: attachment
+                                    .name
+                                    .unwrap_or_else(|| String::from("Unnamed attachment")),
+                                _type: String::from("image"),
+                                url: attachment.url.clone(),
+                                remote_url: Some(attachment.url.clone()),
+                                preview_url: attachment.url,
+                                text_url: None,
+                                meta: None,
+                                description: attachment.content,
+                            });
+                        }
+                    }
+                    None => (),
+                }
+
+                let favourites =
+                    count_ap_object_reactions_by_id(pooled_connection, &inner_object.id, "Like")
+                        .unwrap_or_else(|_| 0) as i64;
+                let reblogs = count_ap_object_reactions_by_id(
+                    pooled_connection,
+                    &inner_object.id,
+                    "Announce",
+                )
+                .unwrap_or_else(|_| 0) as i64;
+                let replies = count_ap_object_replies_by_id(pooled_connection, &inner_object.id)
+                    .unwrap_or_else(|_| 0) as i64;
+                return Ok(Status {
+                    id: activity_id.to_string(),
+                    uri: inner_object.id.clone(),
+                    url: Some(inner_object.id.clone()),
+                    account: account,
+                    in_reply_to_id: in_reply_to,
+                    in_reply_to_account_id: in_reply_to_account,
+                    reblog: None,
+                    content: inner_object.content,
+                    created_at: inner_object.published,
+                    emojis: vec![],
+                    replies_count: replies,
+                    reblogs_count: reblogs,
+                    favourites_count: favourites,
+                    reblogged: Some(false),
+                    favourited: Some(false),
+                    muted: None,
+                    sensitive: inner_object.sensitive.unwrap_or_else(|| false),
+                    spoiler_text: "".to_string(),
+                    visibility: visibility,
+                    media_attachments: media_attachments,
+                    mentions: mentions,
+                    tags: vec![],
+                    application: serde_json::json!({"name": "Web", "website": null}),
+                    language: None,
+                    pinned: None,
+                });
+            }
+            "Announce" => {
+                match get_ap_object_by_id(&pooled_connection, activity.object.as_str().unwrap()) {
+                    Ok(reblog) => {
+                        let serialized_reblog: Status = Status::try_from(reblog).unwrap();
+
+                        Ok(Status {
+                            id: activity_id.to_string(),
+                            uri: activity.id.clone(),
+                            url: Some(activity.id.clone()),
+                            account: account,
+                            in_reply_to_id: None,
+                            in_reply_to_account_id: None,
+                            reblog: Some(serde_json::to_value(serialized_reblog).unwrap()),
+                            content: String::from("reblog"),
+                            created_at: activity.published,
+                            emojis: vec![],
+                            replies_count: 0,
+                            reblogs_count: 0,
+                            favourites_count: 0,
+                            reblogged: Some(false),
+                            favourited: Some(false),
+                            muted: Some(false),
+                            sensitive: false,
+                            spoiler_text: String::new(),
+                            visibility: visibility,
+                            media_attachments: vec![],
+                            mentions: vec![],
+                            tags: vec![],
+                            application: serde_json::json!({"name": "Web", "website": null}),
+                            language: None,
+                            pinned: None,
+                        })
+                    }
+                    Err(_) => Err(()),
+                }
+            }
+            _ => return Err(()),
+        }
+    }
+}
+
 impl ToString for AuthorizationHeader {
     fn to_string(&self) -> String {
         format!("{:?}", &self)
@@ -217,6 +564,15 @@ impl<'a, 'r> FromRequest<'a, 'r> for AuthorizationHeader {
             return Outcome::Success(AuthorizationHeader(headers[0].to_string()));
         }
     }
+}
+
+lazy_static! {
+    static ref MASTODON_API_ACCOUNT_CACHE: Arc<Mutex<lru::LruCache<String, serde_json::Value>>> =
+        Arc::new(Mutex::new(lru::LruCache::new(400)));
+    static ref MASTODON_API_NOTIFICATION_CACHE: Arc<Mutex<lru::LruCache<i64, serde_json::Value>>> =
+        Arc::new(Mutex::new(lru::LruCache::new(400)));
+    static ref MASTODON_API_STATUS_CACHE: Arc<Mutex<lru::LruCache<i64, serde_json::Value>>> =
+        Arc::new(Mutex::new(lru::LruCache::new(400)));
 }
 
 pub fn parse_authorization_header(header: &str) -> String {

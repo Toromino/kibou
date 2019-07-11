@@ -1,4 +1,4 @@
-use database::models::{InsertActivity, QueryActivity};
+use database::models::{InsertActivity, QueryActivity, QueryActivityId};
 use database::runtime_escape;
 use database::schema::activities;
 use database::schema::activities::dsl::*;
@@ -16,15 +16,23 @@ pub struct Activity {
     pub actor: String,
 }
 
+// Beware: This module depends on a lot of raw queries, which we should deprecate in the future. The
+// only reason they're being used is because Diesel.rs does not support JSONB operators that are
+// needed:
+// {->, ->>, @>, ?}
+//
+// Related issue: https://git.cybre.club/kibouproject/kibou/issues/32
+// Diesel.rs issue: https://github.com/diesel-rs/diesel/issues/44
+
 pub fn count_ap_object_replies_by_id(
     db_connection: &PgConnection,
     object_id: &str,
 ) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * FROM activities WHERE data @> '{{\"object\": {{\"inReplyTo\": \"{}\"}}}}';",
+        "SELECT id FROM activities WHERE data @> '{{\"object\": {{\"inReplyTo\": \"{}\"}}}}';",
         runtime_escape(object_id)
     ))
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity_arr) => Ok(activity_arr.len()),
         Err(e) => Err(e),
@@ -37,12 +45,12 @@ pub fn count_ap_object_reactions_by_id(
     reaction: &str,
 ) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * FROM activities WHERE data @> '{{\"type\": \"{reaction_type}\"}}' \
+        "SELECT id FROM activities WHERE data @> '{{\"type\": \"{reaction_type}\"}}' \
          AND data @> '{{\"object\": \"{id}\"}}';",
         reaction_type = runtime_escape(reaction),
         id = runtime_escape(object_id)
     ))
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity_arr) => Ok(activity_arr.len()),
         Err(e) => Err(e),
@@ -54,16 +62,16 @@ pub fn count_ap_notes_for_actor(
     actor: &str,
 ) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * \
+        "SELECT id \
          FROM activities \
-         WHERE data->>'type' = 'Create' \
-         AND data->'object'->>'type' = 'Note' \
-         AND data->>'actor' = '{actor}' \
+         WHERE data @> '{{\"actor\": \"{actor}\", \
+         \"type\": \"Create\", \
+         \"object\": {{\"type\": \"Note\"}}}}' \
          AND ((data->>'to')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public' \
          OR (data->>'cc')::jsonb ? 'https://www.w3.org/ns/activitystreams#Public');",
         actor = runtime_escape(actor)
     ))
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity_arr) => Ok(activity_arr.len()),
         Err(e) => Err(e),
@@ -72,7 +80,7 @@ pub fn count_ap_notes_for_actor(
 
 pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diesel::result::Error> {
     match sql_query(format!(
-        "SELECT * \
+        "SELECT id \
          FROM activities \
          WHERE data->>'type' = 'Create' \
          AND data->'object'->>'type' = 'Note' \
@@ -83,9 +91,28 @@ pub fn count_local_ap_notes(db_connection: &PgConnection) -> Result<usize, diese
         base_domain = env::get_value(String::from("endpoint.base_domain"))
     ))
     .clone()
-    .load::<QueryActivity>(db_connection)
+    .load::<QueryActivityId>(db_connection)
     {
         Ok(activity_arr) => Ok(activity_arr.len()),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn get_activities_by_id(
+    db_connection: &PgConnection,
+    ids: Vec<i64>,
+) -> Result<Vec<Activity>, diesel::result::Error> {
+    let parsed_ids: Vec<String> = ids.iter().map(|num| num.to_string()).collect();
+    match sql_query(format!(
+        "SELECT * FROM activities WHERE id = ANY(ARRAY[{}]);",
+        parsed_ids.join(", ")
+    ))
+    .load::<QueryActivity>(db_connection)
+    {
+        Ok(activity_arr) => Ok(activity_arr
+            .iter()
+            .map(|activity| serialize_activity(activity.clone()))
+            .collect()),
         Err(e) => Err(e),
     }
 }
@@ -159,15 +186,10 @@ pub fn get_ap_object_replies_by_id(
     ))
     .load::<QueryActivity>(db_connection)
     {
-        Ok(activity) => {
-            let mut serialized_activites: Vec<Activity> = vec![];
-
-            for object in activity {
-                serialized_activites.push(serialize_activity(object));
-            }
-
-            Ok(serialized_activites)
-        }
+        Ok(activity_arr) => Ok(activity_arr
+            .iter()
+            .map(|activity| serialize_activity(activity.clone()))
+            .collect()),
         Err(e) => Err(e),
     }
 }

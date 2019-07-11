@@ -3,6 +3,7 @@ use activitypub::actor as ap_actor;
 use activitypub::controller;
 use activitypub::ActivitypubMediatype;
 use activitypub::ActivitystreamsResponse;
+use activitypub::Payload;
 use activitypub::Signature;
 use rocket::http::Status;
 use serde_json;
@@ -18,25 +19,13 @@ pub fn actor(_media_type: ActivitypubMediatype, handle: String) -> Activitystrea
 }
 
 #[post("/actors/<id>/inbox", data = "<activity>")]
-pub fn actor_inbox(id: String, activity: String, _signature: Signature) -> Status {
-    match serde_json::from_str(&activity) {
-        Ok(serialized_activity) => {
-            controller::prepare_incoming(serialized_activity, _signature);
-            return rocket::http::Status::Ok;
-        }
-        Err(_) => return rocket::http::Status::BadRequest,
-    }
+pub fn actor_inbox(id: String, activity: Payload, _signature: Signature) {
+    controller::prepare_incoming(activity.0, _signature);
 }
 
 #[post("/inbox", data = "<activity>")]
-pub fn inbox(activity: String, _signature: Signature) -> Status {
-    match serde_json::from_str(&activity) {
-        Ok(serialized_activity) => {
-            controller::prepare_incoming(serialized_activity, _signature);
-            return rocket::http::Status::Ok;
-        }
-        Err(_) => return rocket::http::Status::BadRequest,
-    }
+pub fn inbox(activity: Payload, _signature: Signature) {
+    controller::prepare_incoming(activity.0, _signature);
 }
 
 #[get("/objects/<id>")]

@@ -26,7 +26,7 @@ which means that you can also use Mastodon applications with Kibou.
     <br>
     <input type="password" name="password">
     <br >
-    <input type="submit">
+    <input type="submit" value="Register">
     <br />
 </form>
 </div>

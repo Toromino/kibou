@@ -31,14 +31,7 @@
                 <li><a href="/about">About</a></li>
             </ul>
         </div>
-        <div id="side-menu">
-            <div class="header">Latest activities</div>
-            <ul>
-                <li>
-                    <center>No activities yet ...</center>
-                </li>
-            </ul>
-        </div>
+        <div id="side-menu">{{notifications | safe}}</div>
         {% else %}
         <div id="user-menu">
             <ul>

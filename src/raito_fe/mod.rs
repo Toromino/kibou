@@ -2,10 +2,12 @@ pub mod api_controller;
 pub mod renderer;
 pub mod routes;
 
+use database::{self, PooledConnection};
 use env;
 use mastodon_api;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
+use rocket::State;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 use std::fs::File;
@@ -14,8 +16,9 @@ use std::io::prelude::*;
 pub static mut BYPASS_API: &'static bool = &false;
 pub static mut MASTODON_API_BASE_URI: &'static str = "127.0.0.1";
 
-pub struct Authentication {
+pub struct Configuration {
     pub account: Option<mastodon_api::Account>,
+    pub context: HashMap<String, String>,
     pub token: Option<String>,
 }
 
@@ -25,41 +28,16 @@ pub struct LoginForm {
     pub password: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct LocalConfiguration(HashMap<String, String>);
-
-impl<'a, 'r> FromRequest<'a, 'r> for Authentication {
+impl<'a, 'r> FromRequest<'a, 'r> for Configuration {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<Authentication, ()> {
-        match request.cookies().get_private("oauth_token") {
-            Some(token) => {
-                match mastodon_api::controller::account_by_oauth_token(token.value().to_string()) {
-                    Ok(mastodon_api_account) => Outcome::Success(Authentication {
-                        account: Some(mastodon_api_account),
-                        token: Some(token.value().to_string()),
-                    }),
-                    Err(_) => Outcome::Success(Authentication {
-                        account: None,
-                        token: None,
-                    }),
-                }
-            }
-            None => Outcome::Success(Authentication {
-                account: None,
-                token: None,
-            }),
-        }
-    }
-}
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Configuration, ()> {
+        let mut account: Option<mastodon_api::Account> = None;
+        let mut context = HashMap::<String, String>::new();
+        let mut token: Option<String> = None;
 
-impl<'a, 'r> FromRequest<'a, 'r> for LocalConfiguration {
-    type Error = ();
-
-    fn from_request(_request: &'a Request<'r>) -> request::Outcome<LocalConfiguration, ()> {
-        let mut new_config = HashMap::<String, String>::new();
-        new_config.insert("javascript_enabled".to_string(), "false".to_string());
-        new_config.insert("mastodon_api_base_uri".to_string(), unsafe {
+        context.insert("javascript_enabled".to_string(), "false".to_string());
+        context.insert("mastodon_api_base_uri".to_string(), unsafe {
             if BYPASS_API == &true {
                 format!(
                     "{base_scheme}://{base_domain}",
@@ -70,17 +48,70 @@ impl<'a, 'r> FromRequest<'a, 'r> for LocalConfiguration {
                 MASTODON_API_BASE_URI.to_string()
             }
         });
-        new_config.insert("minimalmode_enabled".to_string(), "false".to_string());
-        Outcome::Success(LocalConfiguration(new_config))
-    }
-}
+        context.insert("minimalmode_enabled".to_string(), "false".to_string());
+        context.insert("stylesheet".to_string(), get_stylesheet());
 
-impl IntoIterator for LocalConfiguration {
-    type Item = (String, String);
-    type IntoIter = IntoIter<String, String>;
+        match request.cookies().get_private("oauth_token") {
+            Some(oauth_token) => {
+                let json_account: Result<mastodon_api::Account, serde_json::Error> =
+                    serde_json::from_value(
+                        mastodon_api::controller::account_by_oauth_token(
+                            &PooledConnection(database::POOL.get().unwrap()),
+                            oauth_token.value().to_string(),
+                        )
+                        .into(),
+                    );
+                match json_account {
+                    Ok(mastodon_api_account) => {
+                        account = Some(mastodon_api_account);
+                        token = Some(oauth_token.value().to_string());
+                    }
+                    Err(_) => (),
+                }
+            }
+            None => (),
+        }
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        match &account {
+            Some(local_account) => {
+                context.insert(String::from("authenticated_account"), true.to_string());
+                context.insert(
+                    String::from("authenticated_account_display_name"),
+                    (*local_account.display_name).to_string(),
+                );
+                context.insert(
+                    String::from("authenticated_account_avatar"),
+                    (*local_account.avatar).to_string(),
+                );
+                context.insert(
+                    String::from("authenticated_account_id"),
+                    (*local_account.id).to_string(),
+                );
+            }
+            None => {
+                context.insert(String::from("authenticated_account"), false.to_string());
+                context.insert(
+                    String::from("authenticated_account_display_name"),
+                    String::from("Guest"),
+                );
+                context.insert(
+                    String::from("authenticated_account_avatar"),
+                    String::from("/static/assets/default_avatar.png"),
+                );
+                context.insert(String::from("authenticated_account_id"), String::from(""));
+            }
+        }
+
+        context.extend(renderer::context_notifications(
+            &PooledConnection(database::POOL.get().unwrap()),
+            &token,
+        ));
+
+        return Outcome::Success(Configuration {
+            account: account,
+            context: context,
+            token: token,
+        });
     }
 }
 

@@ -2,9 +2,11 @@ use activity;
 use actor;
 use chrono::prelude::*;
 use database;
+use database::PooledConnection;
 use env;
-use mastodon_api::{RegistrationForm, Status, StatusForm};
-use raito_fe::{self, Authentication, LocalConfiguration, LoginForm};
+use lru::LruCache;
+use mastodon_api::{Notification, RegistrationForm, Status, StatusForm};
+use raito_fe::{self, Configuration, LoginForm};
 use rocket::http::{Cookie, Cookies};
 use rocket::request::LenientForm;
 use rocket::response::Redirect;
@@ -13,11 +15,9 @@ use rocket_contrib::templates::Template;
 use std::collections::HashMap;
 use std::fs;
 
-pub fn about(configuration: LocalConfiguration, authentication: Authentication) -> Template {
+pub fn about(configuration: &Configuration) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration);
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
     context.insert(
         "content".to_string(),
         fs::read_to_string("static/raito_fe/html/about.html").unwrap_or_else(|_| {
@@ -32,21 +32,19 @@ This is a placeholder text, it can be edited in \"static/raito_fe/html/about.htm
 }
 
 pub fn account_by_local_id(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     id: String,
 ) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    match raito_fe::api_controller::get_account(&id) {
+    match raito_fe::api_controller::get_account(pooled_connection, &id) {
         Ok(account) => {
-            match &authentication.account {
+            match &configuration.account {
                 Some(account) => {
                     if &account.id != &id {
-                        match &authentication.token {
+                        match &configuration.token {
                             Some(token) => {
                                 match raito_fe::api_controller::relationships_by_token(
                                     &token,
@@ -108,7 +106,7 @@ pub fn account_by_local_id(
             );
             context.insert(
                 String::from("account_timeline"),
-                user_timeline(configuration, authentication, account.id),
+                user_timeline(pooled_connection, configuration, account.id),
             );
 
             return Template::render("raito_fe/account", context);
@@ -118,72 +116,67 @@ pub fn account_by_local_id(
 }
 
 pub fn account_by_username(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     username: String,
 ) -> Template {
     let database = database::establish_connection();
 
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
     match actor::get_local_actor_by_preferred_username(&database, &username) {
-        Ok(actor) => account_by_local_id(configuration, authentication, actor.id.to_string()),
+        Ok(actor) => account_by_local_id(pooled_connection, configuration, actor.id.to_string()),
         Err(_) => Template::render("raito_fe/index", context),
     }
 }
 
 pub fn account_follow(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     id: i64,
     unfollow: bool,
 ) -> Template {
-    let _database = database::establish_connection();
-
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    match &authentication.token {
+    match &configuration.token {
         Some(token) => {
             if unfollow {
-                raito_fe::api_controller::unfollow(token, id);
+                raito_fe::api_controller::unfollow(&token, id);
             } else {
-                raito_fe::api_controller::follow(token, id);
+                raito_fe::api_controller::follow(&token, id);
             }
 
-            return account_by_local_id(configuration, authentication, id.to_string());
+            return account_by_local_id(pooled_connection, configuration, id.to_string());
         }
-        None => return account_by_local_id(configuration, authentication, id.to_string()),
+        None => return account_by_local_id(pooled_connection, configuration, id.to_string()),
     }
 }
 
 pub fn compose(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     in_reply_to: Option<i64>,
 ) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    if authentication.account.is_none() {
+    if configuration.account.is_none() {
         return Template::render("raito_fe/infoscreen", context);
     } else {
         match in_reply_to {
             Some(head_status_id) => {
                 let renderer = rocket::ignite().attach(Template::fairing());
-                match raito_fe::api_controller::get_status(head_status_id.to_string()) {
+                match raito_fe::api_controller::get_status(
+                    pooled_connection,
+                    head_status_id.to_string(),
+                ) {
                     Ok(status) => context.insert(
                         String::from("head_status"),
                         format!(
                             "<input type=\"hidden\" name=\"in_reply_to_id\" value=\"{}\">{}",
                             status.id.clone(),
-                            raw_status(configuration, &authentication, status, &renderer)
+                            raw_status(configuration, status, &renderer)
                         ),
                     ),
                     Err(_) => context.insert(String::from("head_status"), String::from("")),
@@ -199,44 +192,96 @@ pub fn compose(
 }
 
 pub fn compose_post(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     form: LenientForm<StatusForm>,
 ) -> Redirect {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    match &authentication.token {
+    match &configuration.token {
         Some(token) => {
-            raito_fe::api_controller::post_status(form, &token);
+            raito_fe::api_controller::post_status(pooled_connection, form, &token);
             return Redirect::to("/timeline/home");
         }
         None => return Redirect::to("/"),
     }
 }
 
+pub fn context_notifications(
+    pooled_connection: &PooledConnection,
+    token: &Option<String>,
+) -> HashMap<String, String> {
+    let mut context = HashMap::<String, String>::new();
+    let mut notifications: Vec<String> = Vec::new();
+    let mut notifications_context = HashMap::<String, String>::new();
+    let rocket_renderer = rocket::ignite().attach(Template::fairing());
+
+    match token {
+        Some(token) => {
+            match raito_fe::api_controller::notifications(pooled_connection, token) {
+                Ok(notification_vec) => {
+                    for notification in notification_vec {
+                        notifications.push(raw_notification(&rocket_renderer, notification));
+                    }
+                }
+                Err(_) => notifications.push("No notifications yet ...".to_string()),
+            }
+            notifications_context.insert("notifications".to_string(), notifications.join(""));
+            notifications_context.insert("sidebar_name".to_string(), String::from("Notifications"));
+        }
+        None => {
+            notifications_context.insert(
+                "notifications".to_string(),
+                "<li>No activities yet ...</li>".to_string(),
+            );
+            notifications_context.insert(
+                "sidebar_name".to_string(),
+                String::from("Latest activities"),
+            );
+        }
+    };
+
+    notifications_context.insert(
+        "show_footer".to_string(),
+        if notifications.len() > 10 {
+            String::from("true")
+        } else {
+            String::from("false")
+        },
+    );
+
+    context.insert(
+        "notifications".to_string(),
+        Template::show(
+            &rocket_renderer,
+            "raito_fe/notification_view",
+            notifications_context,
+        )
+        .unwrap(),
+    );
+
+    return context;
+}
+
 pub fn conversation(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     id: String,
 ) -> Template {
     let mut context = HashMap::<String, String>::new();
     let rocket_renderer = rocket::ignite().attach(Template::fairing());
 
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    match raito_fe::api_controller::get_status(id.clone()) {
+    match raito_fe::api_controller::get_status(pooled_connection, id.clone()) {
         Ok(status) => {
             let mut renderered_statuses: Vec<String> = vec![];
             let mut parent_statuses: Vec<Status> = vec![];
             let mut child_statuses: Vec<Status> = vec![];
             let mut timeline_parameters = HashMap::<String, String>::new();
 
-            match raito_fe::api_controller::get_status_context(id) {
+            match raito_fe::api_controller::get_status_context(pooled_connection, id) {
                 Ok(context) => {
                     parent_statuses =
                         serde_json::from_value(context["ancestors"].to_owned()).unwrap();
@@ -249,29 +294,21 @@ pub fn conversation(
             for parent in parent_statuses {
                 renderered_statuses.push(raw_status(
                     configuration.clone(),
-                    &authentication,
                     parent,
                     &rocket_renderer,
                 ));
             }
-            renderered_statuses.push(raw_status(
-                configuration.clone(),
-                &authentication,
-                status,
-                &rocket_renderer,
-            ));
+            renderered_statuses.push(raw_status(configuration.clone(), status, &rocket_renderer));
             for child in child_statuses {
                 renderered_statuses.push(raw_status(
                     configuration.clone(),
-                    &authentication,
                     child,
                     &rocket_renderer,
                 ));
             }
             context.insert(String::from("timeline_name"), String::from("Conversation"));
             timeline_parameters.insert(String::from("statuses"), renderered_statuses.join(""));
-            timeline_parameters.extend(configuration.clone());
-            timeline_parameters.extend(prepare_authentication_context(&authentication));
+            timeline_parameters.extend(configuration.context.clone());
             context.insert(
                 String::from("timeline"),
                 Template::show(
@@ -289,8 +326,8 @@ pub fn conversation(
 }
 // Note: This case only occurs if the Raito-FE is set as the main UI of Kibou
 pub fn conversation_by_uri(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     id: String,
 ) -> Template {
     let database = database::establish_connection();
@@ -302,31 +339,32 @@ pub fn conversation_by_uri(
         id
     );
 
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
-
+    context.extend(configuration.context.clone());
     match activity::get_ap_object_by_id(&database, &object_id) {
-        Ok(activity) => conversation(configuration, authentication, activity.id.to_string()),
+        Ok(activity) => conversation(pooled_connection, configuration, activity.id.to_string()),
         Err(_) => Template::render("raito_fe/index", context),
     }
 }
 
 pub fn home_timeline(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
 ) -> Template {
     let mut context = HashMap::<String, String>::new();
     let rocket_renderer = rocket::ignite().attach(Template::fairing());
     let mut timeline_parameters = HashMap::<String, String>::new();
 
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    match &authentication.token {
+    match &configuration.token {
         Some(token) => {
-            if configuration.0.get("javascript_enabled").unwrap() == "true" {
+            if configuration
+                .context
+                .clone()
+                .get("javascript_enabled")
+                .unwrap()
+                == "true"
+            {
                 context.insert(
                     String::from("timeline"),
                     Template::show(
@@ -338,13 +376,12 @@ pub fn home_timeline(
                 );
                 return Template::render("raito_fe/timeline_view", context);
             } else {
-                match raito_fe::api_controller::home_timeline(&format!("Bearer: {}", token)) {
+                match raito_fe::api_controller::home_timeline(pooled_connection, &token) {
                     Ok(statuses) => {
                         let mut renderered_statuses: Vec<String> = vec![];
                         for status in statuses {
                             renderered_statuses.push(raw_status(
                                 configuration.clone(),
-                                &authentication,
                                 status,
                                 &rocket_renderer,
                             ));
@@ -352,7 +389,7 @@ pub fn home_timeline(
 
                         context
                             .insert(String::from("timeline_name"), String::from("Home Timeline"));
-                        timeline_parameters.extend(configuration.clone());
+                        timeline_parameters.extend(configuration.context.clone());
 
                         timeline_parameters
                             .insert(String::from("statuses"), renderered_statuses.join(""));
@@ -372,50 +409,44 @@ pub fn home_timeline(
                 }
             }
         }
-        None => return public_timeline(configuration, authentication, false),
+        None => return public_timeline(pooled_connection, configuration, false),
     }
 }
 
-pub fn index(configuration: LocalConfiguration, authentication: Authentication) -> Template {
+pub fn index(pooled_connection: &PooledConnection, configuration: &Configuration) -> Template {
     let mut context = HashMap::<String, String>::new();
 
-    match &authentication.account {
-        Some(_account) => return home_timeline(configuration, authentication),
+    match &configuration.account {
+        Some(_account) => return home_timeline(pooled_connection, configuration),
         None => {
-            context.extend(configuration);
-            context.extend(prepare_authentication_context(&authentication));
-            context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+            context.extend(configuration.context.clone());
             return Template::render("raito_fe/infoscreen", context);
         }
     }
 }
 
-pub fn login(configuration: LocalConfiguration, authentication: Authentication) -> Template {
+pub fn login(pooled_connection: &PooledConnection, configuration: &Configuration) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    if authentication.account.is_none() {
+    if configuration.account.is_none() {
         return Template::render("raito_fe/login", context);
     } else {
-        return public_timeline(configuration, authentication, false);
+        return public_timeline(pooled_connection, configuration, false);
     }
 }
 
 pub fn login_post(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     mut cookies: Cookies,
     form: LenientForm<LoginForm>,
 ) -> Result<Redirect, Template> {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    if authentication.account.is_none() {
-        match raito_fe::api_controller::login(form) {
+    if configuration.account.is_none() {
+        match raito_fe::api_controller::login(pooled_connection, form) {
             Some(token) => {
                 cookies.add_private(Cookie::new("oauth_token", token));
                 return Ok(Redirect::to("/timeline/home"));
@@ -428,17 +459,15 @@ pub fn login_post(
 }
 
 pub fn public_timeline(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     local: bool,
 ) -> Template {
     let rocket_renderer = rocket::ignite().attach(Template::fairing());
     let mut context = HashMap::<String, String>::new();
     let mut timeline_parameters = HashMap::<String, String>::new();
 
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
     if local {
         context.insert(
             String::from("timeline_name"),
@@ -451,9 +480,15 @@ pub fn public_timeline(
         );
     }
 
-    timeline_parameters.extend(configuration.clone());
+    timeline_parameters.extend(configuration.context.clone());
 
-    if configuration.0.get("javascript_enabled").unwrap() == "true" {
+    if configuration
+        .context
+        .clone()
+        .get("javascript_enabled")
+        .unwrap()
+        == "true"
+    {
         context.insert(
             String::from("timeline"),
             Template::show(
@@ -465,16 +500,11 @@ pub fn public_timeline(
         );
         return Template::render("raito_fe/timeline_view", context);
     } else {
-        match raito_fe::api_controller::get_public_timeline(local) {
+        match raito_fe::api_controller::get_public_timeline(pooled_connection, local) {
             Ok(statuses) => {
                 let mut renderered_statuses: Vec<String> = vec![];
                 for status in statuses {
-                    renderered_statuses.push(raw_status(
-                        configuration.clone(),
-                        &authentication,
-                        status,
-                        &rocket_renderer,
-                    ));
+                    renderered_statuses.push(raw_status(configuration, status, &rocket_renderer));
                 }
 
                 timeline_parameters.insert(String::from("statuses"), renderered_statuses.join(""));
@@ -494,30 +524,48 @@ pub fn public_timeline(
     }
 }
 
-pub fn raw_status(
-    configuration: LocalConfiguration,
-    authentication: &Authentication,
-    status: Status,
-    rocket: &Rocket,
-) -> String {
+pub fn raw_notification(rocket: &Rocket, notification: Notification) -> String {
+    let mut context = HashMap::<String, String>::new();
+    let mut notification_type = String::new();
+    let mut status_content = String::new();
+
+    notification_type = match notification._type.as_str() {
+        "mention" => String::from("has mentioned you"),
+        "follow" => String::from("has followed you"),
+        "favourite" => String::from("has favourited your status"),
+        "reblog" => String::from("has shared your status"),
+        _ => String::from(""),
+    };
+    status_content = match notification.status {
+        Some(status) => status.content,
+        None => String::from(""),
+    };
+
+    context.insert("account_avatar".to_string(), notification.account.avatar);
+    context.insert(
+        "account_username".to_string(),
+        notification.account.username,
+    );
+    context.insert("status_content".to_string(), status_content);
+    context.insert("type".to_string(), notification_type);
+    return Template::show(rocket, "raito_fe/components/notification", context).unwrap();
+}
+
+pub fn raw_status(configuration: &Configuration, status: Status, rocket: &Rocket) -> String {
     let mut context = prepare_status_context(status);
-    context.extend(configuration);
-    context.extend(prepare_authentication_context(authentication));
+    context.extend(configuration.context.clone());
     return Template::show(rocket, "raito_fe/components/status", context).unwrap();
 }
 
 pub fn register_post(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    configuration: &Configuration,
     mut cookies: Cookies,
     form: LenientForm<RegistrationForm>,
 ) -> Result<Redirect, Template> {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration.clone());
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
 
-    if authentication.account.is_none() {
+    if configuration.account.is_none() {
         match raito_fe::api_controller::register(form) {
             Some(token) => {
                 cookies.add_private(Cookie::new("oauth_token", token));
@@ -530,36 +578,28 @@ pub fn register_post(
     }
 }
 
-pub fn settings(configuration: LocalConfiguration, authentication: Authentication) -> Template {
+pub fn settings(configuration: &Configuration) -> Template {
     let mut context = HashMap::<String, String>::new();
-    context.extend(configuration);
-    context.extend(prepare_authentication_context(&authentication));
-    context.insert("stylesheet".to_string(), raito_fe::get_stylesheet());
+    context.extend(configuration.context.clone());
     return Template::render("raito_fe/settings", context);
 }
 
 pub fn user_timeline(
-    configuration: LocalConfiguration,
-    authentication: Authentication,
+    pooled_connection: &PooledConnection,
+    configuration: &Configuration,
     id: String,
 ) -> String {
     let mut context = HashMap::<String, String>::new();
 
-    match raito_fe::api_controller::get_user_timeline(id) {
+    match raito_fe::api_controller::get_user_timeline(pooled_connection, id) {
         Ok(statuses) => {
             let mut renderered_statuses: Vec<String> = vec![];
             let rocket_renderer = rocket::ignite().attach(Template::fairing());
             for status in statuses {
-                renderered_statuses.push(raw_status(
-                    configuration.clone(),
-                    &authentication,
-                    status,
-                    &rocket_renderer,
-                ));
+                renderered_statuses.push(raw_status(configuration, status, &rocket_renderer));
             }
 
-            context.extend(configuration);
-            context.extend(prepare_authentication_context(&authentication));
+            context.extend(configuration.context.clone());
             context.insert(String::from("statuses"), renderered_statuses.join(""));
             context.insert(String::from("timeline_name"), String::from("User Timeline"));
 
@@ -568,42 +608,6 @@ pub fn user_timeline(
         }
         Err(_) => String::from(""),
     }
-}
-
-fn prepare_authentication_context(authentication: &Authentication) -> HashMap<String, String> {
-    let mut context = HashMap::<String, String>::new();
-
-    match &authentication.account {
-        Some(account) => {
-            context.insert(String::from("authenticated_account"), true.to_string());
-            context.insert(
-                String::from("authenticated_account_display_name"),
-                (*account.display_name).to_string(),
-            );
-            context.insert(
-                String::from("authenticated_account_avatar"),
-                (*account.avatar).to_string(),
-            );
-            context.insert(
-                String::from("authenticated_account_id"),
-                (*account.id).to_string(),
-            );
-        }
-        None => {
-            context.insert(String::from("authenticated_account"), false.to_string());
-            context.insert(
-                String::from("authenticated_account_display_name"),
-                String::from("Guest"),
-            );
-            context.insert(
-                String::from("authenticated_account_avatar"),
-                String::from("/static/assets/default_avatar.png"),
-            );
-            context.insert(String::from("authenticated_account_id"), String::from(""));
-        }
-    }
-
-    return context;
 }
 
 fn prepare_status_context(status: Status) -> HashMap<String, String> {

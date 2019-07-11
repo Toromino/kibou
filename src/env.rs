@@ -1,20 +1,26 @@
-extern crate config;
+use rocket::config::Environment;
 
 pub fn get_value(key: String) -> String {
     let mut config = config::Config::default();
+    let environment = match Environment::active() {
+        Ok(Environment::Development) => "development",
+        Ok(Environment::Staging) => "staging",
+        Ok(Environment::Production) => "production",
+        Err(_) => "development"
+    };
 
     set_default_config_values(&mut config);
 
-    // TODO: Find config file based on ROCKET_ENV
     config
-        .merge(config::File::with_name("env.development.toml"))
+        .merge(config::File::with_name(&format!("env.{}.toml", environment)))
         .expect("Environment config not found!");
 
-    if config.get_str(&key).is_ok() {
-        config.get_str(&key).ok().unwrap()
-    } else {
-        eprintln!("Key '{}' in environment config not found", &key);
-        String::from("")
+    match config.get_str(&key) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Key '{}' not found in config", &key);
+            return String::from("");
+        }
     }
 }
 
