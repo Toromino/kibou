@@ -11,7 +11,8 @@ Kibou ships with it's own user interface called Raito-FE. In it's standard confi
 ![Kibou UI screenshot](https://git.cybre.club/attachments/ed7cacce-058e-47d3-8544-7584516a55d9)
 
 ## Try it out
-[List of Kibou nodes](https://git.cybre.club/kibouproject/kibou/wiki/List-of-nodes)
+* [List of Kibou nodes](https://fediverse.network/kibou)
+* [Setup a Kibou server](https://git.cybre.club/kibouproject/kibou/wiki#admins-guide)
 
 ## Federation with other software
 Federation is known to work with [Pleroma](https://pleroma.social), [Misskey](https://joinmisskey.github.io) and [Mastodon](https://joinmastodon.org) which are also the main projects being tested against. But federation with other software should work as well.
