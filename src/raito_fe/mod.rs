@@ -7,12 +7,9 @@ use env;
 use mastodon_api;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
-use rocket::State;
-use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-
 pub static mut BYPASS_API: &'static bool = &false;
 pub static mut MASTODON_API_BASE_URI: &'static str = "127.0.0.1";
 

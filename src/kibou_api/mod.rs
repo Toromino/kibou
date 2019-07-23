@@ -141,7 +141,7 @@ pub fn status_build(
     let mut receipients: Vec<String> = Vec::new();
     let mut inboxes: Vec<String> = Vec::new();
     let mut tags: Vec<serde_json::Value> = Vec::new();
-    let mut in_reply_to_id: Option<String>;
+    let in_reply_to_id: Option<String>;
 
     let parsed_mentions = parse_mentions(html::to_plain_text(&content));
     direct_receipients.extend(parsed_mentions.0);

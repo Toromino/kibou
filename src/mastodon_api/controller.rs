@@ -3,20 +3,13 @@ use activity::{
     get_activities_by_id, get_ap_object_by_id, get_ap_object_replies_by_id,
     type_exists_for_object_id,
 };
-use activitypub;
 use actor;
-use actor::get_actor_by_id;
-use actor::get_actor_by_uri;
 use chrono;
 use chrono::Utc;
-use core::borrow::Borrow;
 use database;
 use database::PooledConnection;
-use diesel::PgConnection;
 use env;
 use kibou_api;
-use lru::LruCache;
-use mastodon_api::routes::status;
 use mastodon_api::{
     Account, Attachment, HomeTimeline, Instance, Notification, PublicTimeline, RegistrationForm,
     Relationship, Source, Status, StatusForm, MASTODON_API_ACCOUNT_CACHE,
@@ -25,7 +18,7 @@ use mastodon_api::{
 use notification::notifications_for_actor;
 use oauth;
 use oauth::application::Application as OAuthApplication;
-use oauth::token::{verify_token, Token};
+use oauth::token::verify_token;
 use regex::Regex;
 use rocket_contrib::json;
 use rocket_contrib::json::JsonValue;

@@ -1,5 +1,5 @@
 use database::PooledConnection;
-use lru::LruCache;
+
 use mastodon_api::controller;
 use mastodon_api::{
     parse_authorization_header, ApplicationForm, AuthorizationHeader, HomeTimeline, PublicTimeline,
@@ -7,7 +7,7 @@ use mastodon_api::{
 };
 use oauth::application::Application;
 use rocket::request::LenientForm;
-use rocket::State;
+
 use rocket_contrib::json::JsonValue;
 
 #[get("/api/v1/accounts/<id>")]

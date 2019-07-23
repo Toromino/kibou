@@ -8,7 +8,7 @@ use env;
 use regex::Regex;
 use rocket::http::Status;
 use rocket::request::{self, FromRequest};
-use rocket::{Outcome, Request, State};
+use rocket::{Outcome, Request};
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub struct PooledConnection(pub r2d2::PooledConnection<ConnectionManager<PgConnection>>);
@@ -35,13 +35,13 @@ impl std::ops::Deref for PooledConnection {
 }
 
 #[deprecated]
-pub fn establish_connection() -> PgConnection {
-    PgConnection::establish(&prepare_postgres_url()).unwrap_or_else(|_| {
-        panic!(format!(
-            "Could not connect to {url}",
-            url = &prepare_postgres_url()
-        ))
-    })
+pub fn establish_connection() -> PooledConnection {
+    // Originally this always established a new database connection, now this is just gonna
+    // return a new connection from the pool until this function can be removed completely.
+    //
+    // TODO: Remove all references of this function!
+
+    return PooledConnection(POOL.get().unwrap());
 }
 
 pub fn initialize_pool() -> Pool {

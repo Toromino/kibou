@@ -4,7 +4,6 @@ use chrono::prelude::*;
 use database;
 use database::PooledConnection;
 use env;
-use lru::LruCache;
 use mastodon_api::{Notification, RegistrationForm, Status, StatusForm};
 use raito_fe::{self, Configuration, LoginForm};
 use rocket::http::{Cookie, Cookies};
@@ -120,11 +119,9 @@ pub fn account_by_username(
     configuration: &Configuration,
     username: String,
 ) -> Template {
-    let database = database::establish_connection();
-
     let mut context = HashMap::<String, String>::new();
     context.extend(configuration.context.clone());
-    match actor::get_local_actor_by_preferred_username(&database, &username) {
+    match actor::get_local_actor_by_preferred_username(pooled_connection, &username) {
         Ok(actor) => account_by_local_id(pooled_connection, configuration, actor.id.to_string()),
         Err(_) => Template::render("raito_fe/index", context),
     }
@@ -330,7 +327,6 @@ pub fn conversation_by_uri(
     configuration: &Configuration,
     id: String,
 ) -> Template {
-    let database = database::establish_connection();
     let mut context = HashMap::<String, String>::new();
     let object_id = format!(
         "{}://{}/objects/{}",
@@ -340,7 +336,7 @@ pub fn conversation_by_uri(
     );
 
     context.extend(configuration.context.clone());
-    match activity::get_ap_object_by_id(&database, &object_id) {
+    match activity::get_ap_object_by_id(pooled_connection, &object_id) {
         Ok(activity) => conversation(pooled_connection, configuration, activity.id.to_string()),
         Err(_) => Template::render("raito_fe/index", context),
     }

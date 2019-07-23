@@ -1,6 +1,6 @@
 use actor;
 use database::PooledConnection;
-use lru::LruCache;
+
 use mastodon_api::{
     controller, routes, Account, AuthorizationHeader, HomeTimeline, Notification, PublicTimeline,
     RegistrationForm, Relationship, Status, StatusForm,

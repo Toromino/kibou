@@ -5,8 +5,6 @@ use activitypub::ActivitypubMediatype;
 use activitypub::ActivitystreamsResponse;
 use activitypub::Payload;
 use activitypub::Signature;
-use rocket::http::Status;
-use serde_json;
 
 #[get("/activities/<id>")]
 pub fn activity(_media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
@@ -18,8 +16,8 @@ pub fn actor(_media_type: ActivitypubMediatype, handle: String) -> Activitystrea
     ActivitystreamsResponse(ap_actor::get_json_by_preferred_username(&handle).to_string())
 }
 
-#[post("/actors/<id>/inbox", data = "<activity>")]
-pub fn actor_inbox(id: String, activity: Payload, _signature: Signature) {
+#[post("/actors/<_id>/inbox", data = "<activity>")]
+pub fn actor_inbox(_id: String, activity: Payload, _signature: Signature) {
     controller::prepare_incoming(activity.0, _signature);
 }
 
