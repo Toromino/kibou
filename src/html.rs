@@ -1,5 +1,11 @@
 use regex::Regex;
 
+pub fn to_plain_text(input: &str) -> String {
+    let output = str::replace(&input, "\n", "<br>");
+
+    return strip_tags(&output);
+}
+
 pub fn strip_tags(input: &str) -> String {
     let allowed_tags = vec!["a", "b", "br", "em", "img", "strong", "u"];
     let forbidden_attributes = vec![

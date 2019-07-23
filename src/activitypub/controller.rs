@@ -15,6 +15,7 @@ use actor::is_actor_followed_by;
 use chrono::Utc;
 use database;
 use env;
+use notification::{self, Notification};
 use std::thread;
 use url::Url;
 use uuid::Uuid;
@@ -299,22 +300,20 @@ fn handle_object(object: serde_json::Value) {
     let serialized_object: Object = serde_json::from_value(object.clone()).unwrap();
 
     if !serialized_object.inReplyTo.is_none() {
-        let object_id = serialized_object.id;
-        let reply_id = serialized_object.inReplyTo.unwrap().clone();
-        thread::spawn(move || {
-            if !object_exists(&object_id) {
-                fetch_object_by_id(reply_id);
-            }
-        });
+        if !object_exists(&serialized_object.inReplyTo.clone().unwrap()) {
+            fetch_object_by_id(serialized_object.inReplyTo.unwrap().to_string());
+        }
     }
 
-    // Wrapping new object in an activity, as raw objects don't get stored
-    let activity = create(
-        &serialized_object.attributedTo,
-        object,
-        serialized_object.to,
-        serialized_object.cc,
-    );
+    if !object_exists(&serialized_object.id) {
+        // Wrapping new object in an activity, as raw objects don't get stored
+        let _activity = create(
+            &serialized_object.attributedTo,
+            object,
+            serialized_object.to,
+            serialized_object.cc,
+        );
+    }
 }
 
 /// Handles a newly fetched actor
@@ -388,7 +387,19 @@ fn handle_activity(activity: serde_json::Value) {
             thread::spawn(move || {
                 fetch_object_by_id(object_id);
             });
-            insert_activity(&database, create_internal_activity(&activity, &actor));
+
+            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
+
+            match get_actor_by_uri(&database, &actor) {
+                Ok(actor) => {
+                    if actor.local {
+                        let notification = Notification::new(id, actor.id);
+                        notification::insert(&database, notification);
+                    }
+                }
+
+                Err(_) => (),
+            }
         }
         Some("Create") => {
             if activity["object"].get("inReplyTo").is_some() {
@@ -397,70 +408,109 @@ fn handle_activity(activity: serde_json::Value) {
                         .as_str()
                         .unwrap()
                         .to_string();
-                    thread::spawn(move || {
-                        fetch_object_by_id(reply_id);
-                    });
+
+                    let id =
+                        insert_activity(&database, create_internal_activity(&activity, &actor)).id;
+
+                    match get_ap_object_by_id(&database, &reply_id) {
+                        Ok(object) => match get_actor_by_uri(&database, &object.actor) {
+                            Ok(actor) => {
+                                if actor.local {
+                                    let notification = Notification::new(id, actor.id);
+                                    notification::insert(&database, notification);
+                                }
+                            }
+                            Err(_) => eprintln!(
+                                "Error: Activity '{}' was fetched without a valid actor!",
+                                &reply_id
+                            ),
+                        },
+                        Err(_) => {
+                            thread::spawn(move || {
+                                fetch_object_by_id(reply_id);
+                            });
+                        }
+                    }
                 }
             }
-
-            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Follow") => {
             let remote_account = get_actor_by_uri(&database, &actor).unwrap();
-            let account =
-                get_actor_by_uri(&database, activity["object"].as_str().unwrap()).unwrap();
 
-            match is_actor_followed_by(&database, &account, &remote_account.actor_uri) {
-                Ok(false) => {
-                    let accept_activity = serde_json::to_value(accept(
-                        &account.actor_uri,
-                        activity["id"].as_str().unwrap(),
-                        vec![remote_account.actor_uri.clone()],
-                        vec![],
-                    ))
-                    .unwrap();
+            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
 
-                    add_follow(
-                        &account.actor_uri,
-                        &remote_account.actor_uri,
-                        activity["id"].as_str().unwrap(),
-                    );
-                    web::federator::enqueue(
-                        account,
-                        accept_activity,
-                        vec![remote_account.inbox.unwrap()],
-                    );
+            match get_actor_by_uri(&database, activity["object"].as_str().unwrap()) {
+                Ok(actor) => {
+                    if actor.local {
+                        let notification = Notification::new(id, actor.id);
+                        notification::insert(&database, notification);
+
+                        match is_actor_followed_by(&database, &actor, &remote_account.actor_uri) {
+                            Ok(false) => {
+                                let accept_activity = serde_json::to_value(accept(
+                                    &actor.actor_uri,
+                                    activity["id"].as_str().unwrap(),
+                                    vec![remote_account.actor_uri.clone()],
+                                    vec![],
+                                ))
+                                .unwrap();
+
+                                add_follow(
+                                    &actor.actor_uri,
+                                    &remote_account.actor_uri,
+                                    activity["id"].as_str().unwrap(),
+                                );
+                                web::federator::enqueue(
+                                    actor,
+                                    accept_activity,
+                                    vec![remote_account.inbox.unwrap()],
+                                );
+                            }
+
+                            // *Note*
+                            //
+                            // Kibou should still send a `Accept` activity even if one was already sent, in
+                            // case the original `Accept` activity did not reach the remote server.
+                            Ok(true) => {
+                                let accept_activity = serde_json::to_value(accept(
+                                    &actor.actor_uri,
+                                    activity["id"].as_str().unwrap(),
+                                    vec![remote_account.actor_uri],
+                                    vec![],
+                                ))
+                                .unwrap();
+                                web::federator::enqueue(
+                                    actor,
+                                    accept_activity,
+                                    vec![remote_account.inbox.unwrap()],
+                                );
+                            }
+                            Err(_) => (),
+                        }
+                    }
                 }
 
-                // *Note*
-                //
-                // Kibou should still send a `Accept` activity even if one was already sent, in
-                // case the original `Accept` activity did not reach the remote server.
-                Ok(true) => {
-                    let accept_activity = serde_json::to_value(accept(
-                        &account.actor_uri,
-                        activity["id"].as_str().unwrap(),
-                        vec![remote_account.actor_uri],
-                        vec![],
-                    ))
-                    .unwrap();
-                    web::federator::enqueue(
-                        account,
-                        accept_activity,
-                        vec![remote_account.inbox.unwrap()],
-                    );
-                }
                 Err(_) => (),
             }
-
-            insert_activity(&database, create_internal_activity(&activity, &actor));
         }
         Some("Like") => {
             let object_id = activity["object"].as_str().unwrap().to_string();
             thread::spawn(move || {
                 fetch_object_by_id(object_id);
             });
-            insert_activity(&database, create_internal_activity(&activity, &actor));
+
+            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
+
+            match get_actor_by_uri(&database, &actor) {
+                Ok(actor) => {
+                    if actor.local {
+                        let notification = Notification::new(id, actor.id);
+                        notification::insert(&database, notification);
+                    }
+                }
+
+                Err(_) => (),
+            }
         }
         Some("Undo") => {
             let remote_account = get_actor_by_uri(&database, &actor).unwrap();

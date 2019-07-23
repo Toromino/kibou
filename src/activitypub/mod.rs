@@ -5,6 +5,7 @@ pub mod routes;
 pub mod validator;
 
 use base64;
+use rocket::data::{self, Data, FromDataSimple};
 use rocket::http::ContentType;
 use rocket::http::MediaType;
 use rocket::http::Status;
@@ -13,7 +14,7 @@ use rocket::response::{self, Responder, Response};
 use rocket::Outcome;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use web::http_signatures::Signature;
 
 pub struct ActivitypubMediatype(bool);
@@ -29,6 +30,28 @@ pub struct Attachment {
     pub url: String,
     pub name: Option<String>,
     pub mediaType: Option<String>,
+}
+
+pub struct Payload(serde_json::Value);
+
+impl FromDataSimple for Payload {
+    type Error = String;
+
+    fn from_data(req: &Request, data: Data) -> data::Outcome<Self, String> {
+        let mut data_stream = String::new();
+
+        // Read at most a 1MB payload
+        //
+        // TODO: This value should be adjustable in the config
+        if let Err(e) = data.open().take(1048576).read_to_string(&mut data_stream) {
+            return Outcome::Failure((Status::InternalServerError, format!("{:?}", e)));
+        }
+
+        match serde_json::from_str(&data_stream) {
+            Ok(value) => return Outcome::Success(Payload(value)),
+            Err(e) => return Outcome::Failure((Status::UnprocessableEntity, format!("{:?}", e))),
+        }
+    }
 }
 
 impl<'a, 'r> FromRequest<'a, 'r> for ActivitypubMediatype {

@@ -56,7 +56,7 @@ pub fn get_authorization_by_code(
 pub fn handle_user_authorization(
     user_form: UserForm,
     client_id: Option<String>,
-    response_type: Option<String>,
+    _response_type: Option<String>,
     redirect_uri: Option<String>,
     state: Option<String>,
     styling: Option<bool>,
@@ -74,7 +74,7 @@ pub fn handle_user_authorization(
                         Some(value) => format!("&state={}", value),
                         None => String::from(""),
                     };
-                    let mut symbol = if redirect_uri.contains("?") {
+                    let symbol = if redirect_uri.contains("?") {
                         "&".to_string()
                     } else {
                         "?".to_string()

@@ -7,7 +7,13 @@ Description=Kibou server
 ; paths according to your Kibou installation
 ; ------------------------------------------------
 WorkingDirectory=/srv/kibou
-ExecStart=/srv/kibou/target/debug/kibou_server
+ExecStart=/srv/kibou/target/release/kibou_server
+; ------------------------------------------------
+
+; Change the the environment
+; -> Enum {production, development, staging}
+; ------------------------------------------------
+Environment="ROCKET_ENV=production"
 ; ------------------------------------------------
 
 ExecReload=/bin/kill $MAINPID

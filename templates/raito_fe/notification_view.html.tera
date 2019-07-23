@@ -1,0 +1,10 @@
+<div class="header">{{sidebar_name}}</div>
+<div id="inner-side-menu">
+<ul>
+{{notifications | safe }}
+</ul>
+</div>
+{% if show_footer == "true" %}
+<div class="footer"></div>
+{% endif %}
+

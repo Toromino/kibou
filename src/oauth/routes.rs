@@ -1,18 +1,15 @@
-use std::collections::HashMap;
-
+use oauth::authorization::{handle_user_authorization, UserForm};
+use oauth::token::{get_token, TokenForm};
 use rocket::request::LenientForm;
 use rocket::response::Redirect;
-use rocket_contrib::templates::Template;
-
-use oauth::authorization::handle_user_authorization;
-use oauth::authorization::UserForm;
-use oauth::token::{get_token, TokenForm};
 use rocket_contrib::json::JsonValue;
+use rocket_contrib::templates::Template;
+use std::collections::HashMap;
 
 #[get("/oauth/authorize?<styling>")]
 pub fn authorize(styling: Option<bool>) -> Template {
     let mut parameters = HashMap::<String, String>::new();
-    parameters.insert(String::from("error_context"), String::from(""));
+    parameters.insert(String::from("error_context"), String::new());
     parameters.insert(
         String::from("styling"),
         styling.unwrap_or_else(|| true).to_string(),

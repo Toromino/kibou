@@ -32,8 +32,8 @@ pub fn verify_credentials(
         .limit(1)
         .first::<QueryOAuthApplication>(db_connection)
     {
-        Ok(application) => true,
-        Err(e) => false,
+        Ok(_application) => true,
+        Err(_e) => false,
     }
 }
 

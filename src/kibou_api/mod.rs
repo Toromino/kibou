@@ -12,9 +12,9 @@ use activity::{
 use activitypub::activity::{serialize_from_internal_activity, Tag};
 use activitypub::actor::{add_follow, remove_follow};
 use activitypub::controller as ap_controller;
-use activitypub::routes::object;
 use actor::{get_actor_by_acct, get_actor_by_id, get_actor_by_uri, is_actor_followed_by, Actor};
 use database;
+use database::PooledConnection;
 use diesel::PgConnection;
 use html;
 use mastodon_api;
@@ -121,8 +121,11 @@ pub fn react(actor: &i64, _type: &str, object_id: &str) {
     }
 }
 
-pub fn route_activities() -> JsonValue {
-    return json!(public_activities());
+pub fn public_activities(pooled_connection: &PooledConnection) -> JsonValue {
+    match timeline::public_activities(pooled_connection) {
+        Ok(activities) => mastodon_api::controller::cached_statuses(pooled_connection, activities),
+        Err(_) => json!({"error": "An error occured while querying public activities"}),
+    }
 }
 
 pub fn status_build(
@@ -140,7 +143,7 @@ pub fn status_build(
     let mut tags: Vec<serde_json::Value> = Vec::new();
     let mut in_reply_to_id: Option<String>;
 
-    let parsed_mentions = parse_mentions(html::strip_tags(&content));
+    let parsed_mentions = parse_mentions(html::to_plain_text(&content));
     direct_receipients.extend(parsed_mentions.0);
     inboxes.extend(parsed_mentions.1);
     tags.extend(parsed_mentions.2);
@@ -334,16 +337,4 @@ fn parse_mentions(content: String) -> (Vec<String>, Vec<String>, Vec<serde_json:
         }
     }
     (receipients, inboxes, tags, new_content)
-}
-
-fn public_activities() -> Vec<mastodon_api::Status> {
-    let database = database::establish_connection();
-
-    match timeline::public_activities(&database) {
-        Ok(activities) => activities
-            .iter()
-            .map(|activity| mastodon_api::controller::status_cached_by_id(*activity).unwrap())
-            .collect(),
-        Err(_) => Vec::new(),
-    }
 }

@@ -3,17 +3,19 @@
 
 extern crate base64;
 extern crate bcrypt;
-#[macro_use]
-extern crate cached;
 extern crate chrono;
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate lazy_static;
+extern crate lru;
 extern crate openssl;
 extern crate pem;
 extern crate regex;
 extern crate reqwest;
 #[macro_use]
 extern crate rocket;
+extern crate core;
 extern crate rocket_contrib;
 extern crate serde;
 extern crate serde_json;
@@ -28,6 +30,7 @@ pub mod env;
 mod html;
 mod kibou_api;
 mod mastodon_api;
+mod notification;
 mod oauth;
 pub mod raito_fe;
 mod tests;
