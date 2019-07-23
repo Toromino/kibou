@@ -5,12 +5,13 @@ use activitypub::ActivitypubMediatype;
 use activitypub::ActivitystreamsResponse;
 use activitypub::Payload;
 use activitypub::Signature;
+use database::PooledConnection;
 use rocket::http::Status;
 use serde_json;
 
 #[get("/activities/<id>")]
-pub fn activity(_media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
-    ActivitystreamsResponse(ap_activity::get_activity_json_by_id(&id).to_string())
+pub fn activity(pooled_connection: PooledConnection, _media_type: ActivitypubMediatype, id: String) -> ActivitystreamsResponse {
+    return ActivitystreamsResponse(controller::activity_by_id(&pooled_connection, &id).to_string());
 }
 
 #[get("/actors/<handle>")]

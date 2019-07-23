@@ -54,21 +54,6 @@ pub struct Tag {
     pub name: String,
 }
 
-pub fn get_activity_json_by_id(id: &str) -> serde_json::Value {
-    let database = database::establish_connection();
-    let activity_id = format!(
-        "{}://{}/activities/{}",
-        env::get_value(String::from("endpoint.base_scheme")),
-        env::get_value(String::from("endpoint.base_domain")),
-        id
-    );
-
-    match activity::get_ap_activity_by_id(&database, &activity_id) {
-        Ok(activity) => json!(serialize_from_internal_activity(activity).object),
-        Err(_) => json!({"error": "Object not found."}),
-    }
-}
-
 pub fn get_object_json_by_id(id: &str) -> serde_json::Value {
     let database = database::establish_connection();
     let object_id = format!(

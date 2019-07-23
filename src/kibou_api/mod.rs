@@ -9,7 +9,7 @@ pub mod routes;
 use activity::{
     get_activity_by_id, get_ap_activity_by_id, get_ap_object_by_id, type_exists_for_object_id,
 };
-use activitypub::activity::{serialize_from_internal_activity, Tag};
+use activitypub::Tag;
 use activitypub::actor::{add_follow, remove_follow};
 use activitypub::controller as ap_controller;
 use actor::{get_actor_by_acct, get_actor_by_id, get_actor_by_uri, is_actor_followed_by, Actor};
@@ -33,7 +33,8 @@ pub fn follow(sender: &str, receipient: &str) {
         match get_actor_by_uri(&database, &receipient) {
             Ok(followee) => {
                 if !is_actor_followed_by(&database, &followee, &sender).unwrap() {
-                    let activitypub_activity_follow = ap_controller::follow(sender, receipient);
+                    let activitypub_activity_follow = ap_controller::activity_build("Follow",
+                                                                                    sender, serde_json::json!(receipient), vec![receipient.to_string()], Vec::new());
 
                     if !followee.local {
                         federator::enqueue(
@@ -97,7 +98,7 @@ pub fn react(actor: &i64, _type: &str, object_id: &str) {
                 match _type {
                     "Announce" => {
                         let new_activity =
-                            ap_controller::announce(&serialized_actor.actor_uri, object_id, to, cc);
+                            ap_controller::activity_build("Announce", &serialized_actor.actor_uri, serde_json::json!(object_id), to, cc);
                         federator::enqueue(
                             serialized_actor,
                             serde_json::json!(&new_activity),
@@ -106,7 +107,7 @@ pub fn react(actor: &i64, _type: &str, object_id: &str) {
                     }
                     "Like" => {
                         let new_activity =
-                            ap_controller::like(&serialized_actor.actor_uri, object_id, to, cc);
+                            ap_controller::activity_build("Like", &serialized_actor.actor_uri, serde_json::json!(object_id), to, cc);
                         federator::enqueue(
                             serialized_actor,
                             serde_json::json!(&new_activity),
@@ -215,7 +216,8 @@ pub fn status_build(
         receipients.clone(),
         tags,
     );
-    let activitypub_activity_create = ap_controller::create(
+    let activitypub_activity_create = ap_controller::activity_build(
+        "Create",
         &actor,
         serde_json::to_value(&activitypub_note).unwrap(),
         direct_receipients,
@@ -253,7 +255,8 @@ pub fn unfollow(actor: String, object: String) {
                 )
                 .unwrap();
 
-                let activitypub_activity_unfollow = ap_controller::undo(
+                let activitypub_activity_unfollow = ap_controller::activity_build(
+                    "Undo",
                     &actor,
                     get_ap_activity_by_id(&database, &activitypub_follow_id)
                         .unwrap()

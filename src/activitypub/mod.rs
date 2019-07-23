@@ -20,6 +20,54 @@ use web::http_signatures::Signature;
 pub struct ActivitypubMediatype(bool);
 pub struct ActivitystreamsResponse(String);
 
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
+pub struct Activity {
+    // Properties according to
+    // - https://www.w3.org/TR/activitystreams-core/#activities
+    #[serde(rename = "@context", skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Value>,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub id: String,
+    pub actor: String,
+    pub object: serde_json::Value,
+    pub published: String,
+    pub to: Vec<String>,
+    pub cc: Vec<String>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
+pub struct Object {
+    #[serde(rename = "@context", skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Value>,
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub id: String,
+    pub published: String,
+    pub attributedTo: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inReplyTo: Option<String>,
+    pub summary: Option<String>,
+    pub content: String,
+    pub to: Vec<String>,
+    pub cc: Vec<String>,
+    pub tag: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sensitive: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Tag {
+    #[serde(rename = "type")]
+    pub _type: String,
+    pub href: String,
+    pub name: String,
+}
+
 // ActivityStreams2/AcitivityPub properties are expressed in CamelCase
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]

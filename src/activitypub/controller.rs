@@ -2,8 +2,8 @@ use activity::get_ap_activity_by_id;
 use activity::get_ap_object_by_id;
 use activity::insert_activity;
 use activitypub::activity::create_internal_activity;
-use activitypub::activity::Activity;
-use activitypub::activity::Object;
+use activitypub::Activity;
+use activitypub::Object;
 use activitypub::actor::add_follow;
 use activitypub::actor::create_internal_actor;
 use activitypub::actor::remove_follow;
@@ -21,18 +21,56 @@ use url::Url;
 use uuid::Uuid;
 use web;
 use web::http_signatures::Signature;
+use rocket_contrib::json;
+use rocket_contrib::json::JsonValue;
+use database::PooledConnection;
 
-/// Creates a new `Accept` activity, inserts it into the database and returns the newly created activity
-///
-/// # Parameters
-///
-/// * `actor`  -              &str | Reference to an ActivityPub actor
-/// * `object` -              &str | Reference to an ActivityStreams object
-/// * `to`     -       Vec<String> | A vector of strings that provides direct receipients
-/// * `cc`     -       Vec<String> | A vector of strings that provides passive receipients
-///
-pub fn accept(actor: &str, object: &str, to: Vec<String>, cc: Vec<String>) -> Activity {
-    activity_build("Accept", actor, serde_json::json!(object), to, cc)
+pub fn activity_build(
+    _type: &str,
+    actor: &str,
+    object: serde_json::Value,
+    to: Vec<String>,
+    cc: Vec<String>,
+) -> Activity {
+    let database = database::establish_connection();
+    let new_activity = Activity {
+        context: Some(serde_json::json!(vec![
+            String::from("https://www.w3.org/ns/activitystreams"),
+            String::from("https://w3id.org/security/v1"),
+        ])),
+        _type: _type.to_string(),
+        id: format!(
+            "{base_scheme}://{base_domain}/activities/{uuid}",
+            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
+            base_domain = env::get_value(String::from("endpoint.base_domain")),
+            uuid = Uuid::new_v4()
+        ),
+        actor: actor.to_string(),
+        object: object,
+        published: Utc::now().to_rfc3339().to_string(),
+        to: to,
+        cc: cc,
+    };
+
+    insert_activity(
+        &database,
+        create_internal_activity(&serde_json::json!(&new_activity), &new_activity.actor),
+    );
+    new_activity
+}
+
+pub fn activity_by_id(pooled_connection: &PooledConnection, id: &str) -> JsonValue {
+    let activity_id = format!(
+        "{}://{}/activities/{}",
+        env::get_value(String::from("endpoint.base_scheme")),
+        env::get_value(String::from("endpoint.base_domain")),
+        id
+    );
+
+    match get_ap_activity_by_id(pooled_connection, &activity_id) {
+        Ok(activity) => json!(serialize_from_internal_activity(activity).object),
+        Err(_) => json!({"error": "Object not found."}),
+    }
 }
 
 /// Determines whether an ActivityPub actor exists in the database
@@ -53,71 +91,6 @@ pub fn actor_exists(actor_id: &str) -> bool {
         Ok(_) => true,
         Err(_) => false,
     }
-}
-
-/// Creates a new `Announce` activity, inserts it into the database and returns the newly created activity
-///
-/// # Parameters
-///
-/// * `actor`  -        &str | Reference to an ActivityPub actor
-/// * `object` -        &str | Reference to an ActivityStreams object
-/// * `to`     - Vec<String> | A vector of strings that provides direct receipients
-/// * `cc`     - Vec<String> | A vector of strings that provides passive receipients
-///
-pub fn announce(actor: &str, object: &str, to: Vec<String>, cc: Vec<String>) -> Activity {
-    activity_build("Announce", actor, serde_json::json!(object), to, cc)
-}
-
-/// Creates a new `Create` activity, inserts it into the database and returns the newly created activity
-///
-/// # Parameters
-///
-/// * `actor`  -            &str | Reference to an ActivityPub actor
-/// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
-/// * `to`     -       Vec<String> | A vector of strings that provides direct receipients
-/// * `cc`     -       Vec<String> | A vector of strings that provides passive receipients
-///
-pub fn create(
-    actor: &str,
-    object: serde_json::Value,
-    to: Vec<String>,
-    cc: Vec<String>,
-) -> Activity {
-    activity_build("Create", actor, object, to, cc)
-}
-
-/// Creates a new `Follow` activity, inserts it into the database and returns the newly created activity
-///
-/// # Parameters
-///
-/// * `actor`  - &str | Reference to an ActivityPub actor
-/// * `object` - &str | Reference to an ActivityStreams object
-///
-pub fn follow(actor: &str, object: &str) -> Activity {
-    activity_build(
-        "Follow",
-        actor,
-        serde_json::json!(object),
-        vec![object.to_string()],
-        vec![],
-    )
-}
-
-/// Creates a new `Like` activity, inserts it into the database and returns the newly created activity
-///
-/// # Parameters
-///
-/// * `actor`  -        &str | Reference to an ActivityPub actor
-/// * `object` -        &str | Reference to an ActivityStreams object
-/// * `to`     - Vec<String> | A vector of strings that provides direct receipients
-/// * `cc`     - Vec<String> | A vector of strings that provides passive receipients
-///
-pub fn like(actor: &str, object: &str, to: Vec<String>, cc: Vec<String>) -> Activity {
-    activity_build("Like", actor, serde_json::json!(object), to, cc)
-}
-
-pub fn undo(actor: &str, object: serde_json::Value, to: Vec<String>, cc: Vec<String>) -> Activity {
-    activity_build("Undo", actor, object, to, cc)
 }
 
 /// Returns a new ActivityStreams object of the type `Note`
@@ -153,7 +126,7 @@ pub fn note(
         ),
         attributedTo: actor.to_string(),
         inReplyTo: reply_to,
-        summary: None, // [TODO]
+        summary: None,
         content: content,
         published: Utc::now().to_rfc3339().to_string(),
         to: to,
@@ -253,40 +226,6 @@ pub fn prepare_incoming(activity: serde_json::Value, signature: Signature) {
     }
 }
 
-fn activity_build(
-    _type: &str,
-    actor: &str,
-    object: serde_json::Value,
-    to: Vec<String>,
-    cc: Vec<String>,
-) -> Activity {
-    let database = database::establish_connection();
-    let new_activity = Activity {
-        context: Some(serde_json::json!(vec![
-            String::from("https://www.w3.org/ns/activitystreams"),
-            String::from("https://w3id.org/security/v1"),
-        ])),
-        _type: _type.to_string(),
-        id: format!(
-            "{base_scheme}://{base_domain}/activities/{uuid}",
-            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
-            base_domain = env::get_value(String::from("endpoint.base_domain")),
-            uuid = Uuid::new_v4()
-        ),
-        actor: actor.to_string(),
-        object: object,
-        published: Utc::now().to_rfc3339().to_string(),
-        to: to,
-        cc: cc,
-    };
-
-    insert_activity(
-        &database,
-        create_internal_activity(&serde_json::json!(&new_activity), &new_activity.actor),
-    );
-    new_activity
-}
-
 /// Handles a newly fetched object and wraps it into it's own internal `Create` activity
 ///
 /// # Parameters
@@ -307,7 +246,8 @@ fn handle_object(object: serde_json::Value) {
 
     if !object_exists(&serialized_object.id) {
         // Wrapping new object in an activity, as raw objects don't get stored
-        let _activity = create(
+        let _activity = activity_build(
+            "Create",
             &serialized_object.attributedTo,
             object,
             serialized_object.to,
@@ -447,9 +387,10 @@ fn handle_activity(activity: serde_json::Value) {
 
                         match is_actor_followed_by(&database, &actor, &remote_account.actor_uri) {
                             Ok(false) => {
-                                let accept_activity = serde_json::to_value(accept(
+                                let accept_activity = serde_json::to_value(activity_build(
+                                    "Accept",
                                     &actor.actor_uri,
-                                    activity["id"].as_str().unwrap(),
+                                    activity["id"].clone(),
                                     vec![remote_account.actor_uri.clone()],
                                     vec![],
                                 ))
@@ -472,9 +413,10 @@ fn handle_activity(activity: serde_json::Value) {
                             // Kibou should still send a `Accept` activity even if one was already sent, in
                             // case the original `Accept` activity did not reach the remote server.
                             Ok(true) => {
-                                let accept_activity = serde_json::to_value(accept(
+                                let accept_activity = serde_json::to_value(activity_build(
+                                    "Accept",
                                     &actor.actor_uri,
-                                    activity["id"].as_str().unwrap(),
+                                    activity["id"].clone(),
                                     vec![remote_account.actor_uri],
                                     vec![],
                                 ))

@@ -1,6 +1,6 @@
 use activitypub;
-use activitypub::activity::Activity;
-use activitypub::activity::Object;
+use activitypub::Activity;
+use activitypub::Object;
 use activitypub::controller::actor_exists;
 use activitypub::controller::fetch_object_by_id;
 use activitypub::controller::object_exists;

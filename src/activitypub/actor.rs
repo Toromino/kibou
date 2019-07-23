@@ -1,4 +1,4 @@
-use activitypub::activity::Activity;
+use activitypub::Activity;
 use activitypub::validator;
 use actor;
 use chrono::Duration;

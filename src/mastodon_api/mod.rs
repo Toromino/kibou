@@ -281,7 +281,7 @@ impl Account {
 
 impl Notification {
     pub fn try_from(activity: Activity) -> Result<Self, ()> {
-        let activitypub_activity: Result<activitypub::activity::Activity, serde_json::Error> =
+        let activitypub_activity: Result<activitypub::Activity, serde_json::Error> =
             serde_json::from_value(activity.data);
         let pooled_connection = &PooledConnection(database::POOL.get().unwrap());
 
@@ -299,7 +299,7 @@ impl Notification {
     fn from_activitystreams(
         pooled_connection: &PooledConnection,
         activity_id: i64,
-        activity: activitypub::activity::Activity,
+        activity: activitypub::Activity,
     ) -> Result<Self, ()> {
         let account = serde_json::from_value(
             controller::cached_account(
@@ -352,7 +352,7 @@ impl Notification {
 
 impl Status {
     pub fn try_from(activity: Activity) -> Result<Self, ()> {
-        let activitypub_activity: Result<activitypub::activity::Activity, serde_json::Error> =
+        let activitypub_activity: Result<activitypub::Activity, serde_json::Error> =
             serde_json::from_value(activity.data);
         let pooled_connection = &PooledConnection(database::POOL.get().unwrap());
 
@@ -369,7 +369,7 @@ impl Status {
     fn from_activitystreams(
         pooled_connection: &PooledConnection,
         activity_id: i64,
-        activity: activitypub::activity::Activity,
+        activity: activitypub::Activity,
     ) -> Result<Self, ()> {
         let account: Account = serde_json::from_value(
             controller::cached_account(pooled_connection, &activity.actor).into(),
@@ -419,7 +419,7 @@ impl Status {
 
         match activity._type.as_str() {
             "Create" => {
-                let inner_object: activitypub::activity::Object =
+                let inner_object: activitypub::Object =
                     serde_json::from_value(activity.object.clone()).unwrap();
                 let mut in_reply_to: Option<String> = None;
                 let mut in_reply_to_account: Option<String> = None;
