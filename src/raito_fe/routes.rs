@@ -1,12 +1,11 @@
-use core::borrow::BorrowMut;
 use database::PooledConnection;
-use lru::LruCache;
+
 use mastodon_api::{RegistrationForm, StatusForm};
 use raito_fe::{renderer, Configuration, LoginForm};
 use rocket::http::Cookies;
 use rocket::request::LenientForm;
 use rocket::response::Redirect;
-use rocket::State;
+
 use rocket_contrib::templates::Template;
 
 #[get("/")]
