@@ -21,8 +21,8 @@ pub fn options_account(pooled_connection: PooledConnection, id: i64) -> JsonValu
 }
 
 #[post("/api/v1/accounts/<id>/follow")]
-pub fn account_follow(_token: AuthorizationHeader, id: i64) -> JsonValue {
-    return controller::follow(parse_authorization_header(&_token.to_string()), id);
+pub fn account_follow(pooled_connection: PooledConnection, _token: AuthorizationHeader, id: i64) -> JsonValue {
+    return controller::follow(&pooled_connection, parse_authorization_header(&_token.to_string()), id);
 }
 
 #[get("/api/v1/accounts/<id>/statuses?<only_media>&<pinned>&<exclude_replies>&<max_id>&<since_id>&<min_id>&<limit>&<exclude_reblogs>")]
@@ -76,8 +76,8 @@ pub fn options_account_statuses(
 }
 
 #[post("/api/v1/accounts/<id>/unfollow")]
-pub fn account_unfollow(_token: AuthorizationHeader, id: i64) -> JsonValue {
-    return controller::unfollow(parse_authorization_header(&_token.to_string()), id);
+pub fn account_unfollow(pooled_connection: PooledConnection, _token: AuthorizationHeader, id: i64) -> JsonValue {
+    return controller::unfollow(&pooled_connection, parse_authorization_header(&_token.to_string()), id);
 }
 
 #[get("/api/v1/accounts/verify_credentials")]

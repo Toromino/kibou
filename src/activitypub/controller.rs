@@ -1,63 +1,28 @@
 use activity::get_ap_activity_by_id;
 use activity::get_ap_object_by_id;
 use activity::insert_activity;
-use activitypub::activity::create_internal_activity;
+use activitypub::add_follow;
+use activitypub::remove_follow;
+use activitypub::Actor;
+use activitypub::validator;
 use activitypub::Activity;
 use activitypub::Object;
-use activitypub::actor::add_follow;
-use activitypub::actor::create_internal_actor;
-use activitypub::actor::remove_follow;
-use activitypub::actor::Actor;
-use activitypub::validator;
-use actor::create_actor;
+use actor;
 use actor::get_actor_by_uri;
 use actor::is_actor_followed_by;
 use chrono::Utc;
 use database;
+use database::{Pool, PooledConnection};
 use env;
 use notification::{self, Notification};
+use rocket::http::Status;
+use rocket_contrib::json;
+use rocket_contrib::json::JsonValue;
 use std::thread;
 use url::Url;
 use uuid::Uuid;
 use web;
 use web::http_signatures::Signature;
-use rocket_contrib::json;
-use rocket_contrib::json::JsonValue;
-use database::PooledConnection;
-
-pub fn activity_build(
-    _type: &str,
-    actor: &str,
-    object: serde_json::Value,
-    to: Vec<String>,
-    cc: Vec<String>,
-) -> Activity {
-    let database = database::establish_connection();
-    let new_activity = Activity {
-        context: Some(serde_json::json!(vec![
-            String::from("https://www.w3.org/ns/activitystreams"),
-            String::from("https://w3id.org/security/v1"),
-        ])),
-        _type: _type.to_string(),
-        id: format!(
-            "{base_scheme}://{base_domain}/activities/{uuid}",
-            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
-            base_domain = env::get_value(String::from("endpoint.base_domain")),
-            uuid = Uuid::new_v4()
-        ),
-        actor: actor.to_string(),
-        object: object,
-        published: Utc::now().to_rfc3339().to_string(),
-        to: to,
-        cc: cc,
-    };
-
-    insert_activity(
-        &database,
-        create_internal_activity(&serde_json::json!(&new_activity), &new_activity.actor),
-    );
-    new_activity
-}
 
 pub fn activity_by_id(pooled_connection: &PooledConnection, id: &str) -> JsonValue {
     let activity_id = format!(
@@ -68,7 +33,7 @@ pub fn activity_by_id(pooled_connection: &PooledConnection, id: &str) -> JsonVal
     );
 
     match get_ap_activity_by_id(pooled_connection, &activity_id) {
-        Ok(activity) => json!(serialize_from_internal_activity(activity).object),
+        Ok(activity) => json!(Activity::from(activity)),
         Err(_) => json!({"error": "Object not found."}),
     }
 }
@@ -84,108 +49,24 @@ pub fn activity_by_id(pooled_connection: &PooledConnection, id: &str) -> JsonVal
 /// Tests for this function are in `tests/activitypub_controller.rs`
 /// - actor_exists()
 /// - err_actor_exists()
-pub fn actor_exists(actor_id: &str) -> bool {
-    let database = database::establish_connection();
-
-    match get_actor_by_uri(&database, actor_id) {
+pub fn actor_exists(pooled_connection: &PooledConnection, uri: &str) -> bool {
+    match get_actor_by_uri(pooled_connection, uri) {
         Ok(_) => true,
         Err(_) => false,
     }
 }
 
-/// Returns a new ActivityStreams object of the type `Note`
-///
-/// # Parameters
-///
-/// * `actor`    -                   &str | Reference to an ActivityPub actor
-/// * `reply_to` -         Option<String> | An optional reference to another ActivityStreams object this object is a reply to
-/// * `content`  -                 String | The content of this note
-/// * `to`       -            Vec<String> | A vector of strings that provides direct receipients
-/// * `cc`       -            Vec<String> | A vector of strings that provides passive receipients
-/// * `tag`      - Vec<serde_json::Value> | A vector of tags to ActivityStreams objects wrapped in JSON
-///
-pub fn note(
-    actor: &str,
-    reply_to: Option<String>,
-    content: String,
-    to: Vec<String>,
-    cc: Vec<String>,
-    tag: Vec<serde_json::Value>,
-) -> Object {
-    Object {
-        context: Some(serde_json::json!(vec![
-            String::from("https://www.w3.org/ns/activitystreams"),
-            String::from("https://w3id.org/security/v1"),
-        ])),
-        _type: String::from("Note"),
-        id: format!(
-            "{base_scheme}://{base_domain}/objects/{uuid}",
-            base_scheme = env::get_value(String::from("endpoint.base_scheme")),
-            base_domain = env::get_value(String::from("endpoint.base_domain")),
-            uuid = Uuid::new_v4()
-        ),
-        attributedTo: actor.to_string(),
-        inReplyTo: reply_to,
-        summary: None,
-        content: content,
-        published: Utc::now().to_rfc3339().to_string(),
-        to: to,
-        cc: cc,
-        tag: Some(tag),
-        attachment: None,
-        sensitive: Some(false),
-    }
-}
+pub fn object_by_id(pooled_connection: &PooledConnection, id: &str) -> JsonValue {
+    let object_id = format!(
+        "{}://{}/objects/{}",
+        env::get_value(String::from("endpoint.base_scheme")),
+        env::get_value(String::from("endpoint.base_domain")),
+        id
+    );
 
-/// Trys to fetch a remote object based on the ActivityStreams id
-///
-/// # Description
-///
-/// If the URL was successfully parsed, this function will try to fetch the remote object and
-/// determine whether it's a known and valid ActivityStreams object or ActivityPub actor.
-///
-/// # Parameters
-///
-/// * `url` - String | Link to an ActivityStreams object
-///
-pub fn fetch_object_by_id(url: String) {
-    let mut parsed_url = String::new();
-    let stripped_characters = "\"";
-    for character in url.chars() {
-        if !stripped_characters.contains(character) {
-            parsed_url.push(character);
-        }
-    }
-    match Url::parse(&parsed_url) {
-        Ok(remote_url) => {
-            if !object_exists(&remote_url.to_string()) && !actor_exists(&remote_url.to_string()) {
-                println!("Trying to fetch document: {}", &url);
-                match web::fetch_remote_object(&remote_url.to_string()) {
-                    Ok(object) => {
-                        let parsed_object: serde_json::Value =
-                            serde_json::from_str(&object).unwrap();
-
-                        match validator::validate_object(parsed_object.clone(), false) {
-                            Ok(as2_object) => {
-                                handle_object(as2_object);
-                                println!("Successfully fetched object: {}", &url);
-                            }
-                            Err(_) => (),
-                        }
-
-                        match validator::validate_actor(parsed_object.clone()) {
-                            Ok(as2_actor) => {
-                                handle_actor(as2_actor);
-                                println!("Successfully fetched actor: {}", &url);
-                            }
-                            Err(_) => (),
-                        }
-                    }
-                    Err(_) => eprintln!("Unable to fetch document: {}", &url),
-                }
-            }
-        }
-        Err(_) => (),
+    match get_ap_object_by_id(pooled_connection, &object_id) {
+        Ok(activity) => json!(Activity::from(activity).object),
+        Err(_) => json!({"error": "Object not found."}),
     }
 }
 
@@ -209,272 +90,291 @@ pub fn object_exists(object_id: &str) -> bool {
     }
 }
 
+/// Tries to fetch a remote object based on the ActivityStreams id
+///
+/// # Description
+///
+/// If the URL was successfully parsed, this function will try to fetch the remote object and
+/// determine whether it's a known and valid ActivityStreams object or ActivityPub actor.
+///
+/// # Parameters
+///
+/// * `url` - &str | Link to an ActivityStreams object
+///
+pub fn fetch(pooled_connection: &PooledConnection, url: &str) {
+    match Url::parse(url) {
+        Ok(remote_url) => {
+            if !object_exists(&remote_url.to_string())
+                && !actor_exists(pooled_connection, &remote_url.to_string())
+            {
+                println!("Trying to fetch document: {}", &url);
+                match web::fetch_remote_object(&remote_url.to_string()) {
+                    Ok(object) => {
+                        let parsed_object: serde_json::Value =
+                            serde_json::from_str(&object).unwrap();
+
+                        match validator::validate_object(pooled_connection, parsed_object.clone(), false) {
+                            Ok(as2_object) => {
+                                handle(pooled_connection, as2_object);
+                                println!("Successfully fetched object: {}", &url);
+                            }
+                            Err(_) => (),
+                        }
+
+                        match validator::validate_actor(parsed_object.clone()) {
+                            Ok(as2_actor) => {
+                                handle(pooled_connection, as2_actor);
+                                println!("Successfully fetched actor: {}", &url);
+                            }
+                            Err(_) => (),
+                        }
+                    }
+                    Err(_) => eprintln!("Unable to fetch document: {}", &url),
+                }
+            }
+        }
+        Err(_) => (),
+    }
+}
+
 /// Handles incoming requests of the inbox
 ///
 /// # Parameters
 ///
 /// * `activity`  - serde_json::Value           | An ActivityStreams activity serialized in JSON
-/// * `signature` - activitiypub::HTTPSignature | The activity's signature, signed by an actor
+/// * `signature` - activitiypub::Signature | The activity's signature, signed by an actor
 ///
-/// # Tests
-///
-/// [TODO]
-pub fn prepare_incoming(activity: serde_json::Value, signature: Signature) {
-    match validator::validate_activity(activity.clone(), signature) {
-        Ok(sanitized_activity) => handle_activity(sanitized_activity),
-        Err(_) => eprintln!("Validation failed for activity: {:?}", activity),
+pub fn validate_incoming(pooled_connection: &PooledConnection, activity: serde_json::Value, signature: Signature) -> Status {
+    match validator::validate_activity(pooled_connection, activity.clone(), signature) {
+        Ok(sanitized_activity) => {
+            handle(pooled_connection, sanitized_activity);
+            return Status::Ok;
+        },
+        Err(_) => {
+            eprintln!("Validation failed for activity: {:?}", activity);
+            return Status::InternalServerError;
+        },
     }
 }
 
-/// Handles a newly fetched object and wraps it into it's own internal `Create` activity
-///
-/// # Parameters
-///
-/// * `object` - serde_json::Value | An ActivityStreams object serialized in JSON
-///
-/// # Tests
-///
-/// [TODO]
-fn handle_object(object: serde_json::Value) {
-    let serialized_object: Object = serde_json::from_value(object.clone()).unwrap();
-
-    if !serialized_object.inReplyTo.is_none() {
-        if !object_exists(&serialized_object.inReplyTo.clone().unwrap()) {
-            fetch_object_by_id(serialized_object.inReplyTo.unwrap().to_string());
+fn generate_notifications(
+    pooled_connection: &PooledConnection,
+    activity_id: i64,
+    collection: Vec<String>,
+) {
+    for person in collection {
+        match get_actor_by_uri(pooled_connection, &person) {
+            Ok(actor) => {
+                if actor.local {
+                    notification::insert(
+                        pooled_connection,
+                        Notification::new(activity_id, actor.id),
+                    );
+                }
+            }
+            Err(e) => eprintln!("{}", e),
         }
     }
-
-    if !object_exists(&serialized_object.id) {
-        // Wrapping new object in an activity, as raw objects don't get stored
-        let _activity = activity_build(
-            "Create",
-            &serialized_object.attributedTo,
-            object,
-            serialized_object.to,
-            serialized_object.cc,
-        );
-    }
 }
 
-/// Handles a newly fetched actor
+/// Handles validated ActivityStreams data
 ///
 /// # Parameters
 ///
-/// * `actor` - serde_json::Value | An ActivityPub actor serialized in JSON
-///
-/// # Tests
-///
-/// [TODO]
-fn handle_actor(actor: serde_json::Value) {
-    let database = database::establish_connection();
-    let serialized_actor: Actor = serde_json::from_value(actor).unwrap();
+/// * `payload` - serde_json::Value | An ActivityStreams payload
+fn handle(pooled_connection: &PooledConnection, payload: serde_json::Value) {
+    match payload["type"].as_str().unwrap() {
+        "Person" => {
+            let actor: Actor = serde_json::from_value(payload).unwrap();
+            actor::create_actor(pooled_connection, &mut actor.into());
+        }
+        "Note" => {
+            let object: Object = serde_json::from_value(payload).unwrap();
 
-    create_actor(&database, &mut create_internal_actor(serialized_actor));
-}
-
-/// Final handling of incoming ActivityStreams activities which have already been validated
-///
-/// # Parameters
-///
-/// * `activity` - serde_json::Value | An ActivityStreams activity serialized in JSON
-///
-/// # Tests
-///
-/// [TODO]
-fn handle_activity(activity: serde_json::Value) {
-    let database = database::establish_connection();
-    let actor = activity["actor"].as_str().unwrap().to_string();
-
-    match activity["type"].as_str() {
-        Some("Accept") => {
-            let mut activity_id: &str = "";
-
-            if activity["object"].is_string() {
-                activity_id = activity["object"].as_str().unwrap();
-            } else if activity["object"].is_object() {
-                activity_id = activity["object"]["id"].as_str().unwrap();
+            match &object.inReplyTo {
+                Some(reference) => fetch(pooled_connection, reference),
+                None => (),
             }
 
-            match get_ap_activity_by_id(&database, activity_id) {
-                Ok(original_activity) => match original_activity.data["type"].as_str().unwrap() {
-                    "Follow" => {
-                        let sender = original_activity.data["actor"].as_str().unwrap();
-                        let receipient_actor = get_actor_by_uri(
-                            &database,
-                            original_activity.data["object"].as_str().unwrap(),
-                        )
-                        .unwrap();
+            // Raw ActivityStreams notes do not get stored,
+            // so Kibou wraps it in a new 'Create' activity
+            if !object_exists(&object.id) {
+                let wrapped_object = Activity::new(
+                    "Create",
+                    &object.attributedTo,
+                    serde_json::json!(object),
+                    object.to,
+                    object.cc,
+                );
 
-                        match is_actor_followed_by(&database, &receipient_actor, sender) {
-                            Ok(false) => {
-                                add_follow(&receipient_actor.actor_uri, sender, activity_id)
+                insert_activity(pooled_connection, wrapped_object.into());
+            }
+        }
+        "Accept" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let object: &str = if activity.object.is_string() {
+                activity.object.as_str().unwrap()
+            } else {
+                activity.object["id"].as_str().unwrap()
+            };
+
+            match get_ap_activity_by_id(pooled_connection, &object) {
+                Ok(referenced_activity) => {
+                    let referenced_activity = Activity::from(referenced_activity);
+                    match referenced_activity._type.as_str() {
+                        "Follow" => {
+                            let actor = referenced_activity.object.as_str().unwrap();
+                            match is_actor_followed_by(
+                                pooled_connection,
+                                actor,
+                                &referenced_activity.actor,
+                            ) {
+                                Ok(false) => {
+                                    add_follow(
+                                        actor,
+                                        &referenced_activity.actor,
+                                        &referenced_activity.id,
+                                    );
+                                    insert_activity(pooled_connection, activity.into());
+                                }
+                                Ok(true) => (),
+                                Err(e) => eprintln!("{}", e),
                             }
-                            Ok(true) => (),
+                        }
+                        _ => (),
+                    }
+                }
+                Err(_) => eprintln!("Unknown reference in 'Accept' activity {}", &activity.id),
+            }
+        }
+        "Announce" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let object = activity.object.as_str().unwrap();
+            let id = insert_activity(pooled_connection, activity.clone().into()).id;
+
+            fetch(pooled_connection, object);
+            generate_notifications(pooled_connection, id, activity.to);
+        }
+        "Create" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let object: Object = serde_json::from_value(activity.clone().object).unwrap();
+            let id = insert_activity(pooled_connection, activity.clone().into()).id;
+
+            match object.inReplyTo {
+                Some(reference) => fetch(pooled_connection, &reference),
+                None => (),
+            }
+
+            generate_notifications(pooled_connection, id, activity.to);
+        }
+        "Follow" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let actor = get_actor_by_uri(pooled_connection, &activity.actor).unwrap();
+            let followee = activity.object.as_str().unwrap();
+
+            match get_actor_by_uri(pooled_connection, followee) {
+                Ok(followee_actor) => {
+                    if followee_actor.local {
+                        match is_actor_followed_by(pooled_connection, followee, &actor.actor_uri) {
+                            Ok(false) => {
+                                insert_activity(pooled_connection, activity.clone().into());
+                                add_follow(followee, &actor.actor_uri, &activity.id);
+                                let accept_activity = Activity::new(
+                                    "Accept",
+                                    followee,
+                                    serde_json::json!(activity.id),
+                                    vec![actor.actor_uri],
+                                    Vec::new(),
+                                );
+                                let id =
+                                    insert_activity(pooled_connection, accept_activity.clone().into()).id;
+
+                                notification::insert(
+                                    pooled_connection,
+                                    Notification::new(id, followee_actor.id),
+                                );
+                                web::federator::enqueue(
+                                    followee_actor,
+                                    serde_json::json!(accept_activity),
+                                    vec![actor.inbox.unwrap()],
+                                );
+                            }
+                            // The remote server might not know that their actor is already following (unsynchronized state),
+                            // so even if the followee is already being followed, accept the 'Follow' activity and send it to the actor.
+                            Ok(true) => {
+                                insert_activity(pooled_connection, activity.clone().into());
+                                let accept_activity = Activity::new(
+                                    "Accept",
+                                    followee,
+                                    serde_json::json!(activity.id),
+                                    vec![actor.actor_uri],
+                                    Vec::new(),
+                                );
+                                let id =
+                                    insert_activity(pooled_connection, accept_activity.clone().into()).id;
+
+                                notification::insert(
+                                    pooled_connection,
+                                    Notification::new(id, followee_actor.id),
+                                );
+                                web::federator::enqueue(
+                                    followee_actor,
+                                    serde_json::json!(accept_activity),
+                                    vec![actor.inbox.unwrap()],
+                                );
+                            }
                             Err(e) => eprintln!("{}", e),
                         }
-
-                        insert_activity(&database, create_internal_activity(&activity, &actor));
-                    }
-                    &_ => (),
-                },
-                Err(e) => eprintln!("Unknown object mentioned in `Accept` activity {}", e),
-            }
-
-            insert_activity(&database, create_internal_activity(&activity, &actor));
-        }
-        Some("Announce") => {
-            let object_id = activity["object"].as_str().unwrap().to_string();
-            thread::spawn(move || {
-                fetch_object_by_id(object_id);
-            });
-
-            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
-
-            match get_actor_by_uri(&database, &actor) {
-                Ok(actor) => {
-                    if actor.local {
-                        let notification = Notification::new(id, actor.id);
-                        notification::insert(&database, notification);
                     }
                 }
-
-                Err(_) => (),
+                Err(e) => eprintln!("{}", e),
             }
         }
-        Some("Create") => {
-            if activity["object"].get("inReplyTo").is_some() {
-                if activity["object"]["inReplyTo"] != serde_json::Value::Null {
-                    let reply_id = activity["object"]["inReplyTo"]
-                        .as_str()
-                        .unwrap()
-                        .to_string();
+        "Like" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let object = activity.object.as_str().unwrap();
+            let id = insert_activity(pooled_connection, activity.clone().into()).id;
 
-                    let id =
-                        insert_activity(&database, create_internal_activity(&activity, &actor)).id;
+            fetch(pooled_connection, object);
 
-                    match get_ap_object_by_id(&database, &reply_id) {
-                        Ok(object) => match get_actor_by_uri(&database, &object.actor) {
-                            Ok(actor) => {
-                                if actor.local {
-                                    let notification = Notification::new(id, actor.id);
-                                    notification::insert(&database, notification);
-                                }
-                            }
-                            Err(_) => eprintln!(
-                                "Error: Activity '{}' was fetched without a valid actor!",
-                                &reply_id
-                            ),
-                        },
-                        Err(_) => {
-                            thread::spawn(move || {
-                                fetch_object_by_id(reply_id);
-                            });
-                        }
-                    }
-                }
-            }
+            generate_notifications(pooled_connection, id, activity.to);
         }
-        Some("Follow") => {
-            let remote_account = get_actor_by_uri(&database, &actor).unwrap();
+        "Undo" => {
+            let activity: Activity = serde_json::from_value(payload).unwrap();
+            let actor = &activity.actor;
 
-            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
+            let object: Activity = if activity.object.is_object() {
+                serde_json::from_value(activity.clone().object).unwrap()
+            } else {
+                get_ap_activity_by_id(pooled_connection, activity.object.as_str().unwrap()).expect(
+                    &format!(
+                        "A referenced object within an 'Undo' activity should exist! ({})",
+                        &activity.id
+                    ),
+                ).into()
+            };
 
-            match get_actor_by_uri(&database, activity["object"].as_str().unwrap()) {
-                Ok(actor) => {
-                    if actor.local {
-                        let notification = Notification::new(id, actor.id);
-                        notification::insert(&database, notification);
+            let followee = object.object.as_str().unwrap();
 
-                        match is_actor_followed_by(&database, &actor, &remote_account.actor_uri) {
-                            Ok(false) => {
-                                let accept_activity = serde_json::to_value(activity_build(
-                                    "Accept",
-                                    &actor.actor_uri,
-                                    activity["id"].clone(),
-                                    vec![remote_account.actor_uri.clone()],
-                                    vec![],
-                                ))
-                                .unwrap();
-
-                                add_follow(
-                                    &actor.actor_uri,
-                                    &remote_account.actor_uri,
-                                    activity["id"].as_str().unwrap(),
-                                );
-                                web::federator::enqueue(
-                                    actor,
-                                    accept_activity,
-                                    vec![remote_account.inbox.unwrap()],
-                                );
-                            }
-
-                            // *Note*
-                            //
-                            // Kibou should still send a `Accept` activity even if one was already sent, in
-                            // case the original `Accept` activity did not reach the remote server.
+            // The actor of the 'Undo' activity must be the same as the actor of the
+            // original follow activity, otherwise an unrelated actor could mutate
+            // the follow relationship between these actors.
+            //
+            // This should be moved into activitypub::validator
+            if followee == actor {
+                match object._type.as_str() {
+                    "Follow" => {
+                        match is_actor_followed_by(pooled_connection, followee, &object.actor) {
                             Ok(true) => {
-                                let accept_activity = serde_json::to_value(activity_build(
-                                    "Accept",
-                                    &actor.actor_uri,
-                                    activity["id"].clone(),
-                                    vec![remote_account.actor_uri],
-                                    vec![],
-                                ))
-                                .unwrap();
-                                web::federator::enqueue(
-                                    actor,
-                                    accept_activity,
-                                    vec![remote_account.inbox.unwrap()],
-                                );
+                                remove_follow(followee, &object.actor);
+                                insert_activity(pooled_connection, activity.into());
                             }
-                            Err(_) => (),
+                            Ok(false) => (),
+                            Err(e) => eprintln!("{}", e),
                         }
                     }
+                    _ => ()
                 }
-
-                Err(_) => (),
-            }
-        }
-        Some("Like") => {
-            let object_id = activity["object"].as_str().unwrap().to_string();
-            thread::spawn(move || {
-                fetch_object_by_id(object_id);
-            });
-
-            let id = insert_activity(&database, create_internal_activity(&activity, &actor)).id;
-
-            match get_actor_by_uri(&database, &actor) {
-                Ok(actor) => {
-                    if actor.local {
-                        let notification = Notification::new(id, actor.id);
-                        notification::insert(&database, notification);
-                    }
-                }
-
-                Err(_) => (),
-            }
-        }
-        Some("Undo") => {
-            let remote_account = get_actor_by_uri(&database, &actor).unwrap();
-            let object =
-                get_ap_activity_by_id(&database, activity["object"]["id"].as_str().unwrap())
-                    .unwrap();
-
-            match object.data["type"].as_str().unwrap() {
-                "Follow" => {
-                    let account =
-                        get_actor_by_uri(&database, object.data["object"].as_str().unwrap())
-                            .unwrap();
-
-                    match is_actor_followed_by(&database, &account, &actor) {
-                        Ok(true) => remove_follow(&account.actor_uri, &remote_account.actor_uri),
-                        Ok(false) => (),
-                        Err(_) => (),
-                    }
-
-                    insert_activity(&database, create_internal_activity(&activity, &actor));
-                }
-                &_ => (),
             }
         }
         _ => (),

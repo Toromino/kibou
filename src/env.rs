@@ -6,13 +6,16 @@ pub fn get_value(key: String) -> String {
         Ok(Environment::Development) => "development",
         Ok(Environment::Staging) => "staging",
         Ok(Environment::Production) => "production",
-        Err(_) => "development"
+        Err(_) => "development",
     };
 
     set_default_config_values(&mut config);
 
     config
-        .merge(config::File::with_name(&format!("env.{}.toml", environment)))
+        .merge(config::File::with_name(&format!(
+            "env.{}.toml",
+            environment
+        )))
         .expect("Environment config not found!");
 
     match config.get_str(&key) {

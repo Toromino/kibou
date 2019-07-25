@@ -102,7 +102,7 @@ pub fn rocket_app(config: rocket::config::Config) -> rocket::Rocket {
         app = app.mount("/", well_known::nodeinfo::get_routes());
     }
 
-    app
+    return app;
 }
 
 // Returns whether nodeinfo routes should be mounted based

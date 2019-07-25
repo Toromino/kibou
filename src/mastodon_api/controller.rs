@@ -257,7 +257,7 @@ pub fn favourite(pooled_connection: &PooledConnection, token: String, id: i64) -
                 serde_json::from_value(account_by_oauth_token(pooled_connection, token).into());
             match account {
                 Ok(account) => {
-                    kibou_api::react(
+                    kibou_api::react(pooled_connection,
                         &account.id.parse::<i64>().unwrap(),
                         "Like",
                         activity.data["object"]["id"].as_str().unwrap(),
@@ -271,7 +271,7 @@ pub fn favourite(pooled_connection: &PooledConnection, token: String, id: i64) -
     }
 }
 
-pub fn follow(token: String, id: i64) -> JsonValue {
+pub fn follow(pooled_connection: &PooledConnection, token: String, id: i64) -> JsonValue {
     let database = database::establish_connection();
 
     match verify_token(&database, token.to_string()) {
@@ -279,7 +279,7 @@ pub fn follow(token: String, id: i64) -> JsonValue {
             Ok(actor) => {
                 let followee = actor::get_actor_by_id(&database, &id).unwrap();
 
-                kibou_api::follow(&actor.actor_uri, &followee.actor_uri);
+                kibou_api::follow(pooled_connection, &actor.actor_uri, &followee.actor_uri);
                 return json!(Relationship {
                     id: followee.id.to_string(),
                     following: true,
@@ -356,9 +356,8 @@ pub fn notifications(
     token: String,
     limit: Option<i64>,
 ) -> JsonValue {
-    let database = database::establish_connection();
 
-    match verify_token(&database, token) {
+    match verify_token(pooled_connection, token) {
         Ok(token) => {
             match actor::get_local_actor_by_preferred_username(pooled_connection, &token.actor) {
                 Ok(actor) => {
@@ -486,7 +485,7 @@ pub fn reblog(pooled_connection: &PooledConnection, token: String, id: i64) -> J
                 serde_json::from_value(account_by_oauth_token(pooled_connection, token).into());
             match account {
                 Ok(account) => {
-                    kibou_api::react(
+                    kibou_api::react(pooled_connection,
                         &account.id.parse::<i64>().unwrap(),
                         "Announce",
                         activity.data["object"]["id"].as_str().unwrap(),
@@ -521,11 +520,16 @@ pub fn status_post(
         Ok(token) => {
             match actor::get_local_actor_by_preferred_username(pooled_connection, &token.actor) {
                 Ok(actor) => {
-                    let status_id = kibou_api::status_build(
-                        actor.actor_uri,
-                        form.status.unwrap(),
+                    let in_reply_to: Option<i64> = match form.in_reply_to_id {
+                        Some(id) => id.parse::<i64>().ok(),
+                        None => None
+                    };
+                    let status_id = kibou_api::status(
+                        pooled_connection,
+                        &actor.actor_uri,
+                        &form.status.unwrap(),
                         &form.visibility.unwrap(),
-                        form.in_reply_to_id,
+                        in_reply_to,
                     );
 
                     return status_by_id(pooled_connection, status_id);
@@ -537,15 +541,14 @@ pub fn status_post(
     }
 }
 
-pub fn unfollow(token: String, target_id: i64) -> JsonValue {
-    let database = database::establish_connection();
-
-    match verify_token(&database, token) {
-        Ok(token) => match actor::get_local_actor_by_preferred_username(&database, &token.actor) {
+pub fn unfollow(pooled_connection: &PooledConnection, token: String, target_id: i64) -> JsonValue {
+    match verify_token(pooled_connection, token) {
+        Ok(token) => match actor::get_local_actor_by_preferred_username(pooled_connection, &token.actor) {
             Ok(actor) => {
-                let followee = actor::get_actor_by_id(&database, &target_id).unwrap();
+                let followee = actor::get_actor_by_id(pooled_connection, &target_id)
+                    .unwrap();
 
-                kibou_api::unfollow(actor.actor_uri, followee.actor_uri);
+                kibou_api::unfollow(pooled_connection, &actor.actor_uri, &followee.actor_uri);
                 return json!(Relationship {
                     id: followee.id.to_string(),
                     following: false,

@@ -364,11 +364,11 @@ pub fn get_local_actor_by_preferred_username(
 
 pub fn is_actor_followed_by(
     db_connection: &PgConnection,
-    actor: &Actor,
-    followee: &str,
+    actor: &str,
+    follower: &str,
 ) -> Result<bool, diesel::result::Error> {
     match actors
-        .filter(actor_uri.eq(&actor.actor_uri))
+        .filter(actor_uri.eq(&actor))
         .limit(1)
         .first::<QueryActor>(db_connection)
     {
@@ -377,7 +377,7 @@ pub fn is_actor_followed_by(
                 let mut follow_exists: bool = false;
 
                 for follow in follows {
-                    if follow["href"].as_str() == Some(followee) {
+                    if follow["href"].as_str() == Some(follower) {
                         follow_exists = true;
                     }
                 }

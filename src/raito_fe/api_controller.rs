@@ -10,10 +10,10 @@ use raito_fe::{LoginForm, BYPASS_API, MASTODON_API_BASE_URI};
 use reqwest::header::{HeaderValue, ACCEPT};
 use rocket::request::LenientForm;
 
-pub fn follow(token: &str, id: i64) -> Result<Relationship, ()> {
+pub fn follow(pooled_connection: &PooledConnection, token: &str, id: i64) -> Result<Relationship, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::account_follow(AuthorizationHeader(format!("Bearer: {}", token)), id)
+            &controller::follow(pooled_connection, token.to_string(), id)
                 .to_string(),
         ) {
             Ok(relationship) => Ok(relationship),
@@ -40,10 +40,10 @@ pub fn notifications(
     }
 }
 
-pub fn unfollow(token: &str, id: i64) -> Result<Relationship, ()> {
+pub fn unfollow(pooled_connection: &PooledConnection, token: &str, id: i64) -> Result<Relationship, ()> {
     if unsafe { BYPASS_API } == &true {
         match serde_json::from_str(
-            &routes::account_unfollow(AuthorizationHeader(format!("Bearer: {}", token)), id)
+            &controller::unfollow(pooled_connection, token.to_string(), id)
                 .to_string(),
         ) {
             Ok(relationship) => Ok(relationship),

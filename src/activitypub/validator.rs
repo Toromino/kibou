@@ -1,11 +1,11 @@
 use activitypub;
+use activitypub::controller::actor_exists;
+use activitypub::controller::fetch;
+use activitypub::controller::object_exists;
 use activitypub::Activity;
 use activitypub::Object;
-use activitypub::controller::actor_exists;
-use activitypub::controller::fetch_object_by_id;
-use activitypub::controller::object_exists;
 use actor;
-use database;
+use database::PooledConnection;
 use html;
 use regex::Regex;
 use url::Url;
@@ -13,10 +13,10 @@ use web;
 use web::http_signatures::Signature;
 
 pub fn validate_activity(
+    pooled_connection: &PooledConnection,
     mut activity: serde_json::Value,
     signature: Signature,
 ) -> Result<serde_json::Value, &'static str> {
-    let database = database::establish_connection();
     let known_type = if activity.get("type").is_some() {
         match activity["type"].as_str() {
             Some("Accept") => true,
@@ -32,24 +32,24 @@ pub fn validate_activity(
     };
 
     let valid_actor = if activity.get("actor").is_some() {
-        if actor_exists(activity["actor"].as_str().unwrap()) {
+        if actor_exists(pooled_connection, activity["actor"].as_str().unwrap()) {
             activitypub::actor::refresh(activity["actor"].as_str().unwrap().to_string());
             true
         } else {
-            fetch_object_by_id(activity["actor"].as_str().unwrap().to_string());
-            actor_exists(activity["actor"].as_str().unwrap())
+            fetch(pooled_connection, activity["actor"].as_str().unwrap());
+            actor_exists(pooled_connection, activity["actor"].as_str().unwrap())
         }
     } else {
         false
     };
 
     let valid_signature = signature.verify(
-        &mut actor::get_actor_by_uri(&database, activity["actor"].as_str().unwrap()).unwrap(),
+        &mut actor::get_actor_by_uri(pooled_connection, activity["actor"].as_str().unwrap()).unwrap(),
     );
 
     let valid_object = if activity["type"].as_str() == Some("Create") {
         if !object_exists(activity["object"]["id"].as_str().unwrap()) {
-            match validate_object(activity["object"].clone(), valid_signature) {
+            match validate_object(pooled_connection, activity["object"].clone(), valid_signature) {
                 Ok(object) => {
                     activity["object"] = object;
                     true
@@ -71,6 +71,7 @@ pub fn validate_activity(
 }
 
 pub fn validate_object(
+    pooled_connection: &PooledConnection,
     object: serde_json::Value,
     valid_signature: bool,
 ) -> Result<serde_json::Value, &'static str> {
@@ -88,6 +89,7 @@ pub fn validate_object(
         true
     } else {
         if object.get("id").is_some() {
+            println!("Signature of object '{}' is invalid or missing, trying to verify it's source ...", object["id"].to_string());
             match parse_url(object["id"].as_str().unwrap()) {
                 Ok(url) => valid_self_reference(&object, &url),
                 Err(_) => false,
@@ -98,12 +100,12 @@ pub fn validate_object(
     };
 
     let valid_actor = if object.get("attributedTo").is_some() {
-        if actor_exists(object["attributedTo"].as_str().unwrap()) {
+        if actor_exists(pooled_connection, object["attributedTo"].as_str().unwrap()) {
             activitypub::actor::refresh(object["attributedTo"].as_str().unwrap().to_string());
             true
         } else {
-            fetch_object_by_id(object["attributedTo"].as_str().unwrap().to_string());
-            actor_exists(object["attributedTo"].as_str().unwrap())
+            fetch(pooled_connection, object["attributedTo"].as_str().unwrap());
+            actor_exists(pooled_connection, object["attributedTo"].as_str().unwrap())
         }
     } else {
         false

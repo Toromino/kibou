@@ -142,9 +142,9 @@ pub fn account_follow(
     match &configuration.token {
         Some(token) => {
             if unfollow {
-                raito_fe::api_controller::unfollow(&token, id);
+                raito_fe::api_controller::unfollow(pooled_connection, &token, id);
             } else {
-                raito_fe::api_controller::follow(&token, id);
+                raito_fe::api_controller::follow(pooled_connection, &token, id);
             }
 
             return account_by_local_id(pooled_connection, configuration, id.to_string());
