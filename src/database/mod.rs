@@ -34,12 +34,9 @@ impl std::ops::Deref for PooledConnection {
     }
 }
 
-#[deprecated]
 pub fn establish_connection() -> PooledConnection {
     // Originally this always established a new database connection, now this is just gonna
-    // return a new connection from the pool until this function can be removed completely.
-    //
-    // TODO: Remove all references of this function!
+    // return a new connection from the pool.
 
     return PooledConnection(POOL.get().unwrap());
 }

@@ -172,7 +172,9 @@ pub fn cached_notifications(pooled_connection: &PooledConnection, ids: Vec<i64>)
 }
 
 pub fn cached_statuses(pooled_connection: &PooledConnection, ids: Vec<i64>) -> JsonValue {
-    let mut status_cache = MASTODON_API_STATUS_CACHE.lock().unwrap();
+    // Try to ignore mutex poisoning, the mutex might already get poisened once a status fails to
+    // serialize.
+    let mut status_cache = MASTODON_API_STATUS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
     let mut statuses: Vec<Status> = Vec::new();
     let mut uncached_statuses: Vec<i64> = Vec::new();
     for id in ids {
