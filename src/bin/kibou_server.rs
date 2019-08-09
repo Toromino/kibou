@@ -9,6 +9,7 @@ fn main() {
             .expect("Unknown ROCKET_ENV value! (enum: {Development, Staging, Production})"),
     )
     .address(env::get_value("endpoint.host".to_string()))
+    .log_level(rocket::config::LoggingLevel::Normal)
     .port(
         env::get_value("endpoint.port".to_string())
             .parse::<u16>()
